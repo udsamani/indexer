@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
 use tokio::time::timeout;
@@ -11,7 +11,7 @@ pub type WorkerRef = Box<dyn Worker + Send + Sync>;
 /// A trait that defines an interface for a worker
 pub trait Worker {
     /// Spawns a new worker into a tokio task
-    fn spawn(&mut self) -> SpawnResult;
+    fn spawn(&mut self, context: Arc<Context>) -> SpawnResult;
 
     /// Checks if the worker is running
     fn is_running(&self) -> bool {
@@ -39,7 +39,6 @@ impl RunningFlag {
 }
 
 pub struct Workers {
-    context: Context,
     delay_millis: u64,
     workers: Vec<WorkerRef>,
     running: RunningFlag
@@ -47,9 +46,8 @@ pub struct Workers {
 
 
 impl Workers {
-    pub fn new(context: Context, delay_millis: u64) -> Self {
+    pub fn new(delay_millis: u64) -> Self {
         Self {
-            context,
             delay_millis,
             workers: vec![],
             running: RunningFlag::default(),
@@ -60,32 +58,20 @@ impl Workers {
         self.workers.push(worker);
     }
 
-    pub async fn run(&mut self) -> AppResult<String> {
-        self.spawn().await.unwrap()
-    }
-}
-
-
-impl Clone for Workers {
-    fn clone(&self) -> Self {
-        Self {
-            delay_millis: self.delay_millis,
-            workers: vec![],
-            running: self.running.clone(),
-        }
+    pub async fn run(&mut self, context: Context) -> AppResult<String> {
+        self.spawn(Arc::new(context)).await.unwrap()
     }
 }
 
 
 impl Worker for Workers {
-    fn spawn(&mut self) -> SpawnResult {
+    fn spawn(&mut self, context: Arc<Context>) -> SpawnResult {
         let workers = self.workers.drain(..).collect::<Vec<WorkerRef>>();
         let running = self.running.clone();
-        let context = self.context.clone();
         let delay_millis = self.delay_millis;
         // A timeout indiciating that if the worker does not start within this time, it will be considered failed
         // and the worker will be stopped
-        let timeout_millis = context.config.get_int("worker_timeout_millis").unwrap_or(5000) as u64;
+        let timeout_millis = 5000_u64;
 
         log::info!("Starting workers for {}", context.name);
         tokio::spawn(async move {
@@ -94,7 +80,7 @@ impl Worker for Workers {
 
             let mut futures = vec![];
             for mut worker in workers {
-                futures.push(worker.spawn());
+                futures.push(worker.spawn(context.clone()));
             }
 
             log::info!("{} spawned {} workers", context.name, futures.len());

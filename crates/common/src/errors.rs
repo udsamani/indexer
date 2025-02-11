@@ -8,4 +8,6 @@ pub enum AppError {
     Warning(String),
     #[error("{0}")]
     NotImplemented(String),
+    #[error("{0}")]
+    Unrecoverable(String),
 }
