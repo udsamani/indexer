@@ -1,0 +1,23 @@
+services:
+
+  redis:
+    image: "${REGISTRY_URL:-}redis:7-alpine"
+    volumes:
+      - ${PWD}/.tmp/redis:/data
+    ports:
+      - 6379:6379
+
+  grafana:
+    container_name: grafana
+    image: "${REGISTRY_URL:-}grafana/grafana"
+    ports:
+      - "3000:3000"
+
+  Etcd:
+    image: 'bitnami/etcd:latest'
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+    ports:
+      - 2379:2379
+      - 2380:2380

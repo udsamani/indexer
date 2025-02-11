@@ -23,3 +23,16 @@ test: ## Run the tests
 build: ## Build the project
 	@cargo build
 
+
+.PHONY: services
+services:				## start docker services
+	@docker compose -f ./docker/docker-compose.yaml up --remove-orphans -d
+
+.PHONY: services-stop
+services-stop:				## stop docker services
+	@docker compose -f ./docker/docker-compose.yaml stop
+
+.PHONY: services-clean
+services-clean:				## remove docker containers
+	@docker compose -f ./docker/docker-compose.yaml stop
+	@docker compose -f ./docker/docker-compose.yaml rm -f
