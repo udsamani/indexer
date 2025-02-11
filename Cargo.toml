@@ -4,3 +4,24 @@ members = [
     "crates/*"
 ]
 resolver = "2"
+
+[workspace.dependencies]
+## Async Dependencies
+async-trait = { version = "0.1.86" }
+tokio-tungstenite = { version = "0.26.1", features = ["native-tls"] }
+tokio = { version = "1.39.0", features = ["full"] }
+futures-util = { version = "0.3.31" }
+futures = { version = "0.3.31" }
+
+## Miscellaneous
+jiff = { version = "0.2.0" }
+thiserror = { version = "2.0.11" }
+dotenvy = { version = "0.15.7" }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+rust_decimal = { version = "1.36.0" }
+rust_decimal_macros = { version = "1.36.0" }
+log = { version = "0.4.25" }
+
+## Serialization Dependencies
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.138"
