@@ -22,9 +22,9 @@ pub struct KrakenResponse {
     #[serde(flatten)]
     pub response_data: KrakenResponseData,
     pub success: bool,
-    #[serde(with = "common::timestamp")]
+    #[serde(with = "common::timestamp_with_tz_serializer")]
     pub time_in: Timestamp,
-    #[serde(with = "common::timestamp")]
+    #[serde(with = "common::timestamp_with_tz_serializer")]
     pub time_out: Timestamp,
 }
 

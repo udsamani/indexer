@@ -11,8 +11,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 /// ```
 /// use exchange::ExchangeConfig;
+/// use exchange::Exchange;
 ///
 /// let config = ExchangeConfig {
+///     exchange: Exchange::Kraken,
 ///     ws_url: "wss://ws.exchange.com/socket".to_string(),
 ///     channels: vec!["trades".to_string(), "orderbook".to_string()],
 ///     instruments: vec!["BTC-USD".to_string()],

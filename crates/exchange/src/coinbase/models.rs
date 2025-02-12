@@ -37,7 +37,7 @@ pub struct CoinbaseTickerMessage {
     pub best_ask: Decimal,
     pub best_ask_size: Decimal,
     pub side: Side,
-    #[serde(with = "common::timestamp")]
+    #[serde(with = "common::timestamp_with_tz_serializer")]
     pub time: jiff::Timestamp,
     pub trade_id: u64,
     pub last_size: Decimal,
