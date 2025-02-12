@@ -1,0 +1,17 @@
+[package]
+name = "exchange"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+rust_decimal = { workspace = true, features = ["serde-with-str"] }
+jiff = { workspace = true }
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
