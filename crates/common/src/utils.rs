@@ -10,6 +10,13 @@ pub mod timestamp {
         s.parse().map_err(serde::de::Error::custom)
     }
 
+    pub fn serialize<S>(value: &jiff::Timestamp, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&value.to_string())
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
