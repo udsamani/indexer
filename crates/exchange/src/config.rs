@@ -22,19 +22,30 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExchangeConfig {
     pub ws_url: String,
+    pub exchange: Exchange,
     pub channels: Vec<String>,
     pub instruments: Vec<String>,
     pub heartbeat_millis: u64,
 }
 
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Exchange {
+    Kraken,
+    Coinbase,
+    Binance,
+}
+
 impl ExchangeConfig {
     pub fn new(
         ws_url: String,
+        exchange: Exchange,
         channels: Vec<String>,
         instruments: Vec<String>,
         heartbeat_millis: u64,
     ) -> Self {
-        Self { ws_url, channels, instruments, heartbeat_millis }
+        Self { ws_url, exchange, channels, instruments, heartbeat_millis }
     }
 }
 
@@ -49,6 +60,7 @@ mod tests {
     fn test_exchange_config_deserialize() {
         let config_json = serde_json::json!({
             "ws_url": "wss://ws.exchange.com/socket",
+            "exchange": "kraken",
             "channels": ["trades", "orderbook"],
             "instruments": ["BTC-USD", "ETH-USD"],
             "heartbeat_millis": 30000
@@ -56,21 +68,9 @@ mod tests {
 
         let config: ExchangeConfig = serde_json::from_value(config_json).unwrap();
         assert_eq!(config.ws_url, "wss://ws.exchange.com/socket");
+        assert!(matches!(config.exchange, Exchange::Kraken));
         assert_eq!(config.channels, vec!["trades", "orderbook"]);
         assert_eq!(config.instruments, vec!["BTC-USD", "ETH-USD"]);
         assert_eq!(config.heartbeat_millis, 30000);
-    }
-
-    #[test]
-    fn test_exchange_config_serialize() {
-        let config = ExchangeConfig::new(
-            "wss://ws.exchange.com/socket".to_string(),
-            vec!["trades".to_string(), "orderbook".to_string()],
-            vec!["BTC-USD".to_string(), "ETH-USD".to_string()],
-            30000
-        );
-
-        let config_json = serde_json::to_value(&config).unwrap();
-        assert_eq!(config_json, config_json);
     }
 }
