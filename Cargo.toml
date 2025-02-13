@@ -7,6 +7,7 @@ resolver = "2"
 
 [workspace.dependencies]
 common = { path = "./crates/common" }
+exchange = { path = "./crates/exchange" }
 ## Async Dependencies
 async-trait = { version = "0.1.86" }
 tokio-tungstenite = { version = "0.26.1", features = ["native-tls"] }
