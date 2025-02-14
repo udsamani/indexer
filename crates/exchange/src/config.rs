@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 
 /// Configuration for establishing and maintaining a WebSocket connection to a cryptocurrency exchange.
@@ -48,6 +50,14 @@ impl ExchangeConfig {
         heartbeat_millis: u64,
     ) -> Self {
         Self { ws_url, exchange, channels, instruments, heartbeat_millis }
+    }
+
+    pub fn get_instruments(&self) -> HashSet<String> {
+        self.instruments.clone().into_iter().collect()
+    }
+
+    pub fn get_channels(&self) -> HashSet<String> {
+        self.channels.clone().into_iter().collect()
     }
 }
 

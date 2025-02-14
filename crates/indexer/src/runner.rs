@@ -1,7 +1,7 @@
 use common::{static_config, AppResult, Context, MpSc, Runner, Workers};
 use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
-use exchange::{BinanceWsClient, Exchange, KrakenWsClient};
+use exchange::{BinanceWsClient, CoinbaseWsClient, Exchange, KrakenWsClient};
 
 use crate::config::IndexerConfig;
 
@@ -63,6 +63,14 @@ impl Runner for IndexerRunner {
             let mut kraken_ws_client = KrakenWsClient::new(kraken_config.clone());
             let kraken_consumer = kraken_ws_client.consumer(self.context.clone());
             workers.add_worker(Box::new(kraken_consumer));
+        }
+
+        // Add Coinbase WsConsumer
+        let coinbase_config = app_config.get_exchange_config(Exchange::Coinbase);
+        if let Some(coinbase_config) = coinbase_config {
+            let mut coinbase_ws_client = CoinbaseWsClient::new(coinbase_config.clone());
+            let coinbase_consumer = coinbase_ws_client.consumer(self.context.clone());
+            workers.add_worker(Box::new(coinbase_consumer));
         }
 
         // Run Workers

@@ -2,7 +2,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CoinbaseSubscribeRequest {
+pub struct CoinbaseRequest {
     #[serde(rename = "type")]
     pub request_type: CoinbaseRequestType,
     pub product_ids: Vec<String>,
@@ -43,6 +43,24 @@ pub struct CoinbaseTickerMessage {
     pub last_size: Decimal,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum CoinbaseResponse {
+    Subscriptions(CoinbaseSubscriptionsResponse),
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CoinbaseSubscriptionsResponse {
+    pub channels: Vec<CoinbaseSubscription>,
+}
+
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CoinbaseSubscription {
+    pub name: String,
+    pub product_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
@@ -59,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_coinbase_subscribe_request_serialize() {
-        let request = CoinbaseSubscribeRequest {
+        let request = CoinbaseRequest {
             request_type: CoinbaseRequestType::Subscribe,
             product_ids: vec!["BTC-USD".to_string()],
             channels: vec!["tickers".to_string()],
@@ -81,7 +99,7 @@ mod tests {
             "channels": ["tickers"]
         });
 
-        let request: CoinbaseSubscribeRequest = serde_json::from_value(json).unwrap();
+        let request: CoinbaseRequest = serde_json::from_value(json).unwrap();
         assert!(matches!(request.request_type, CoinbaseRequestType::Subscribe));
         assert_eq!(request.product_ids, vec!["BTC-USD"]);
         assert_eq!(request.channels, vec!["tickers"]);
@@ -131,4 +149,27 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_coinbase_subscriptions_response_deserialize() {
+        let json = serde_json::json!(
+            {
+                "type": "subscriptions",
+                "channels": [
+                    {
+                        "name": "ticker",
+                        "product_ids": ["BTC-USD"]
+                    }
+                ]
+            }
+        );
+
+        let response: CoinbaseResponse = serde_json::from_value(json).unwrap();
+        match response {
+            CoinbaseResponse::Subscriptions(subscriptions) => {
+                assert_eq!(subscriptions.channels.len(), 1);
+                assert_eq!(subscriptions.channels[0].name, "ticker");
+                assert_eq!(subscriptions.channels[0].product_ids, vec!["BTC-USD"]);
+            }
+        }
+    }
 }

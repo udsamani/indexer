@@ -5,10 +5,6 @@ use crate::ExchangeConfig;
 
 use super::KrakenWsCallback;
 
-
-
-
-
 #[derive(Clone)]
 pub struct KrakenWsClient {
     client: WsClient,
