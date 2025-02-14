@@ -23,6 +23,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 rust_decimal = { version = "1.36.0" }
 rust_decimal_macros = { version = "1.36.0" }
 log = { version = "0.4.25" }
+config = { version = "0.15.8" }
 
 ## Serialization Dependencies
 serde = { version = "1.0.217", features = ["derive"] }

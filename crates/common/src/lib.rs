@@ -1,5 +1,4 @@
 mod backoff;
-mod config;
 mod context;
 mod errors;
 mod mpsc;
@@ -9,7 +8,6 @@ mod utils;
 mod worker;
 
 pub use backoff::*;
-pub use config::*;
 pub use context::*;
 pub use errors::*;
 pub use mpsc::*;
