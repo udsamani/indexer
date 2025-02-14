@@ -15,9 +15,9 @@ etcdctl put /aionex/indexer/config '{
     },
     {
       "exchange": "binance",
-      "ws_url": "wss://ws.binance.com",
+      "ws_url": "wss://stream.binance.com:9443/ws",
       "channels": ["ticker"],
-      "instruments": ["btcusdt", "ethusdt"],
+      "instruments": ["ETHUSDT", "BTCUSDT"],
       "heartbeat_millis": 3000
     },
     {

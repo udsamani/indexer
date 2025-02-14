@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 common = { workspace = true }
+wsclient = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
@@ -12,6 +13,8 @@ thiserror = { workspace = true }
 log = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 jiff = { workspace = true }
+async-trait = { workspace = true }
+tokio-tungstenite = { workspace = true }
 
 [dev-dependencies]
 rust_decimal_macros = { workspace = true }

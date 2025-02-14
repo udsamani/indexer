@@ -1,6 +1,7 @@
 use common::{static_config, AppResult, Context, MpSc, Runner, Workers};
 use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
+use exchange::{BinanceWsClient, Exchange};
 
 use crate::config::IndexerConfig;
 
@@ -40,12 +41,19 @@ impl Runner for IndexerRunner {
 
         // Get App Config Intiailly.
         // We expecte the app config to be present in etcd for initial startup.
-        let _app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
-        log::info!("initial app config: {:?}", _app_config);
+        let app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
+        log::info!("initial app config: {:?}", app_config);
 
         let sender = MpSc::<String>::new(100);
         let etcd_watcher = EtcdWatcher::<String>::new(self.context.clone(), etcd_client, sender, config_key);
         workers.add_worker(Box::new(etcd_watcher));
+
+        let binance_config = app_config.get_exchange_config(Exchange::Binance);
+        if let Some(binance_config) = binance_config {
+            let mut binance_ws_client = BinanceWsClient::new(binance_config.clone());
+            let binance_consumer = binance_ws_client.consumer(self.context.clone());
+            workers.add_worker(Box::new(binance_consumer));
+        }
 
         workers.run().await?;
         Ok("IndexerRunner".to_string())

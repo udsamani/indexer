@@ -28,13 +28,27 @@ pub struct BinanceResponse {
 
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct BinanceTicker {
+pub struct BinanceChannelMessage {
     #[serde(rename = "e")]
     pub event_type: String,
     #[serde(rename = "E", with = "common::timestamp_millis_serializer")]
     pub event_time: jiff::Timestamp,
     #[serde(rename = "s")]
     pub symbol: String,
+    #[serde(flatten)]
+    pub data: BinanceChannelData,
+}
+
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum BinanceChannelData {
+    Ticker(BinanceTicker),
+}
+
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BinanceTicker {
     #[serde(rename = "p")]
     pub price_change: Decimal,
     #[serde(rename = "P")]
@@ -140,30 +154,38 @@ mod tests {
             "L": 18150,
             "n": 18151
         });
-        let ticker: BinanceTicker = serde_json::from_value(json).unwrap();
-        assert_eq!(ticker.event_type, "24hrTicker");
-        assert_eq!(ticker.event_time, jiff::Timestamp::from_millisecond(1672515782136).unwrap());
-        assert_eq!(ticker.symbol, "BNBBTC");
-        assert_eq!(ticker.price_change, dec!(0.0015));
-        assert_eq!(ticker.price_change_percent, dec!(250.00));
-        assert_eq!(ticker.weighted_avg_price, dec!(0.0018));
-        assert_eq!(ticker.first_trade_price, dec!(0.0009));
-        assert_eq!(ticker.last_price, dec!(0.0025));
-        assert_eq!(ticker.last_quantity, dec!(10));
-        assert_eq!(ticker.best_bid_price, dec!(0.0024));
-        assert_eq!(ticker.best_bid_quantity, dec!(10));
-        assert_eq!(ticker.best_ask_price, dec!(0.0026));
-        assert_eq!(ticker.best_ask_quantity, dec!(100));
-        assert_eq!(ticker.open_price, dec!(0.0010));
-        assert_eq!(ticker.high_price, dec!(0.0025));
-        assert_eq!(ticker.low_price, dec!(0.0010));
-        assert_eq!(ticker.total_traded_base_asset_volume, dec!(10000));
-        assert_eq!(ticker.total_traded_quote_asset_volume, dec!(18));
-        assert_eq!(ticker.statistics_open_time, 0);
-        assert_eq!(ticker.statistics_close_time, 86400000);
-        assert_eq!(ticker.first_trade_id, 0);
-        assert_eq!(ticker.last_trade_id, 18150);
-        assert_eq!(ticker.total_trades, 18151);
+        let message: BinanceChannelMessage = serde_json::from_value(json).unwrap();
+        assert_eq!(message.event_type, "24hrTicker");
+        assert_eq!(message.event_time, jiff::Timestamp::from_millisecond(1672515782136).unwrap());
+        assert_eq!(message.symbol, "BNBBTC");
+
+        match message.data {
+            BinanceChannelData::Ticker(ticker) => {
+                assert_eq!(ticker.price_change, dec!(0.0015));
+                assert_eq!(ticker.price_change_percent, dec!(250.00));
+                assert_eq!(ticker.weighted_avg_price, dec!(0.0018));
+                assert_eq!(ticker.first_trade_price, dec!(0.0009));
+                assert_eq!(ticker.last_price, dec!(0.0025));
+                assert_eq!(ticker.last_quantity, dec!(10));
+                assert_eq!(ticker.best_bid_price, dec!(0.0024));
+                assert_eq!(ticker.best_bid_quantity, dec!(10));
+                assert_eq!(ticker.best_ask_price, dec!(0.0026));
+                assert_eq!(ticker.best_ask_quantity, dec!(100));
+                assert_eq!(ticker.open_price, dec!(0.0010));
+                assert_eq!(ticker.high_price, dec!(0.0025));
+                assert_eq!(ticker.low_price, dec!(0.0010));
+                assert_eq!(ticker.total_traded_base_asset_volume, dec!(10000));
+                assert_eq!(ticker.total_traded_quote_asset_volume, dec!(18));
+                assert_eq!(ticker.statistics_open_time, 0);
+                assert_eq!(ticker.statistics_close_time, 86400000);
+                assert_eq!(ticker.first_trade_id, 0);
+                assert_eq!(ticker.last_trade_id, 18150);
+                assert_eq!(ticker.total_trades, 18151);
+            }
+            _ => {
+              panic!("expected ticker data");
+            }
+        }
     }
 
 
