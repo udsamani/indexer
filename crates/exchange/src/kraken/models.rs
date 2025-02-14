@@ -35,14 +35,14 @@ pub enum KrakenResponseData {
     Unsubscribe{result: KrakenResponseResult},
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum KrakenMessage {
     ChannelMessage(KrakenChannelMessage),
     Heartbeat(KrakenHeartbeat),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct KrakenChannelMessage {
     #[serde(rename = "type")]
     pub data_type: KrakenDataType,
@@ -60,6 +60,7 @@ pub struct KrakenHeartbeat {
 pub enum KrakenChannelType {
     Ticker,
     Heartbeat,
+    Status,
 }
 
 impl std::fmt::Display for KrakenChannelType {
@@ -67,6 +68,7 @@ impl std::fmt::Display for KrakenChannelType {
         match self {
             KrakenChannelType::Ticker => write!(f, "ticker"),
             KrakenChannelType::Heartbeat => write!(f, "heartbeat"),
+            KrakenChannelType::Status => write!(f, "status"),
         }
     }
 }
@@ -78,10 +80,11 @@ pub enum KrakenDataType {
     Update,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum KrakenChannelData {
     Ticker(Vec<KrakenTicker>),
+    Connection(Vec<KrakenConnection>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,8 +106,9 @@ pub struct KrakenTicker {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KrakenResponseResult {
     pub channel: String,
-    pub symbol: Vec<String>,
+    pub symbol: String,
     pub event_trigger: KrakenEventTrigger,
+    pub snapshot: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +118,13 @@ pub enum KrakenEventTrigger {
     Trades,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct KrakenConnection {
+    pub version: String,
+    pub system: String,
+    pub api_version: String,
+    pub connection_id: u64,
+}
 
 
 #[cfg(test)]
@@ -155,7 +166,8 @@ mod tests {
             "time_out": timestamp.to_string(),
             "result": {
                 "channel": "ticker",
-                "symbol": ["ALGO/USD"],
+                "symbol": "ALGO/USD",
+                "snapshot": true,
                 "event_trigger": "bbo"
             }
         });
@@ -167,7 +179,7 @@ mod tests {
         match response.response_data {
             KrakenResponseData::Subscribe { result } => {
                 assert_eq!(result.channel, "ticker");
-                assert_eq!(result.symbol, vec!["ALGO/USD"]);
+                assert_eq!(result.symbol, "ALGO/USD");
                 assert!(matches!(result.event_trigger, KrakenEventTrigger::Bbo));
             }
             _ => panic!("Expected Subscribe response"),
@@ -215,7 +227,8 @@ mod tests {
                 assert_eq!(ticker.high, dec!(0.10285));
                 assert_eq!(ticker.change, dec!(-0.00017));
                 assert_eq!(ticker.change_pct, dec!(-0.17));
-            }
+            },
+            _ => panic!("Expected Ticker"),
         }
 
         let message: KrakenMessage = serde_json::from_value(json_value).unwrap();
@@ -237,5 +250,61 @@ mod tests {
         assert!(matches!(message.channel, KrakenChannelType::Heartbeat));
     }
 
+    #[test]
+    fn test_kraken_connection_message() {
+        let json_value = json!({
+            "channel":"status",
+            "type":"update",
+            "data":[
+                {
+                    "version":"2.0.9",
+                    "system":"online",
+                    "api_version":"v2",
+                    "connection_id":13221451392339412989_u64
+                }
+            ]
+        });
 
+        let message: KrakenChannelMessage = serde_json::from_value(json_value).unwrap();
+        match message.data {
+            KrakenChannelData::Connection(connections) => {
+                assert_eq!(connections.len(), 1);
+                let connection = &connections[0];
+                assert_eq!(connection.version, "2.0.9");
+                assert_eq!(connection.system, "online");
+                assert_eq!(connection.api_version, "v2");
+                assert_eq!(connection.connection_id, 13221451392339412989_u64);
+            }
+            _ => panic!("Expected Connection"),
+        }
+    }
+
+    #[test]
+    fn test_kraken_subscribe_response() {
+        let json = r#"{
+            "method": "subscribe",
+            "result": {
+                "channel": "ticker",
+                "event_trigger": "trades",
+                "snapshot": true,
+                "symbol": "BTC/USD"
+            },
+            "success": true,
+            "time_in": "2025-02-14T21:33:53.961562Z",
+            "time_out": "2025-02-14T21:33:53.961612Z"
+        }"#;
+
+        let response: KrakenResponse = serde_json::from_str(json).unwrap();
+
+        assert!(response.success);
+        match response.response_data {
+            KrakenResponseData::Subscribe { result } => {
+                assert_eq!(result.channel, "ticker");
+                assert_eq!(result.symbol, "BTC/USD");
+                assert!(result.snapshot);
+                assert!(matches!(result.event_trigger, KrakenEventTrigger::Trades));
+            }
+            _ => panic!("Expected Subscribe response"),
+        }
+    }
 }

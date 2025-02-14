@@ -43,6 +43,15 @@ impl BinanceWsCallback {
             id: self.next_request_id,
         }
     }
+
+    pub fn try_parsing_channel_message(&self, text: &Utf8Bytes) -> Option<BinanceChannelMessage> {
+        serde_json::from_str::<BinanceChannelMessage>(text).ok()
+    }
+
+    pub fn try_parsing_response(&self, text: &Utf8Bytes) -> Option<BinanceResponse> {
+        serde_json::from_str::<BinanceResponse>(text).ok()
+    }
+
 }
 
 
@@ -58,24 +67,12 @@ impl WsCallback for BinanceWsCallback {
     async fn on_message(&mut self, message: Message, _received_time: jiff::Timestamp) -> AppResult<()> {
         match message {
             Message::Text(text) => {
-                let message_result = serde_json::from_str::<BinanceChannelMessage>(&text);
-                match message_result {
-                    Ok(channel_message) => {
-                        if self.instruments_to_subscribe.read().contains(&channel_message.symbol) {
-                            log::info!("received binance ticker message: {:?}", channel_message);
-                        }
-                    }
-                    Err(_) => {
-                        let response_result = serde_json::from_str::<BinanceResponse>(&text);
-                        match response_result {
-                            Ok(response) => {
-                                log::info!("received binance response: {:?}", response);
-                            }
-                            Err(e) => {
-                                log::error!("error parsing binance response: {}", e);
-                            }
-                        }
-                    }
+                if let Some(channel_message) = self.try_parsing_channel_message(&text) {
+                    log::info!("received binance ticker message: {:?}", channel_message);
+                } else if let Some(response) = self.try_parsing_response(&text) {
+                    log::info!("received binance response: {:?}", response);
+                } else {
+                    log::warn!("received unexpected message: {:?}", text);
                 }
             }
             Message::Close(close) => {
@@ -84,6 +81,9 @@ impl WsCallback for BinanceWsCallback {
                 } else {
                     log::error!("Binance connection closed");
                 }
+            }
+            Message::Ping(ping) => {
+                self.ws_client.write(Message::Pong(ping))?;
             }
             _ => {
                 log::error!("received unexpected message: {:?}", message);

@@ -20,6 +20,7 @@ pub enum CoinbaseRequestType {
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum CoinbaseChannelMessage {
     Ticker(CoinbaseTickerMessage),
+    Heartbeat(CoinbaseHeartbeatMessage),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -41,6 +42,15 @@ pub struct CoinbaseTickerMessage {
     pub time: jiff::Timestamp,
     pub trade_id: u64,
     pub last_size: Decimal,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CoinbaseHeartbeatMessage {
+    pub last_trade_id: u64,
+    pub product_id: String,
+    pub sequence: u64,
+    #[serde(with = "common::timestamp_with_tz_serializer")]
+    pub time: jiff::Timestamp,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -146,6 +156,7 @@ mod tests {
                 assert_eq!(ticker.best_ask_size, dec!(0.03375599));
                 assert_eq!(ticker.last_size, dec!(0.0007456));
             }
+            _ => panic!("Expected Ticker"),
         }
     }
 
@@ -170,6 +181,28 @@ mod tests {
                 assert_eq!(subscriptions.channels[0].name, "ticker");
                 assert_eq!(subscriptions.channels[0].product_ids, vec!["BTC-USD"]);
             }
+        }
+    }
+
+    #[test]
+    fn test_coinbase_heartbeat_channel_message_deserialize() {
+        let json = serde_json::json!({
+            "type":"heartbeat",
+            "last_trade_id":610049064_u64,
+            "product_id":"ETH-USD",
+            "sequence":75305048571_u64,
+            "time":"2025-02-14T19:51:40.843016Z"
+        });
+
+        let message: CoinbaseChannelMessage = serde_json::from_value(json).unwrap();
+        match message {
+            CoinbaseChannelMessage::Heartbeat(heartbeat) => {
+                assert_eq!(heartbeat.last_trade_id, 610049064_u64);
+                assert_eq!(heartbeat.product_id, "ETH-USD");
+                assert_eq!(heartbeat.sequence, 75305048571_u64);
+                assert_eq!(heartbeat.time.to_string(), "2025-02-14T19:51:40.843016Z");
+            }
+            _ => panic!("Expected Heartbeat"),
         }
     }
 }

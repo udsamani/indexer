@@ -67,6 +67,9 @@ impl WsCallback for CoinbaseWsCallback {
                     log::error!("Coinbase connection closed");
                 }
             }
+            Message::Ping(ping) => {
+                self.client.write(Message::Pong(ping))?;
+            }
             _ => {}
         }
         Ok(())

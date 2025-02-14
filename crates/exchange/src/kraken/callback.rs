@@ -39,6 +39,14 @@ impl KrakenWsCallback {
         }
         requests
     }
+
+    pub fn try_parsing_channel_message(&self, text: &Utf8Bytes) -> Option<KrakenMessage> {
+        serde_json::from_str::<KrakenMessage>(text).ok()
+    }
+
+    pub fn try_parsing_response(&self, text: &Utf8Bytes) -> Option<KrakenResponse> {
+        serde_json::from_str::<KrakenResponse>(text).ok()
+    }
 }
 
 
@@ -57,30 +65,12 @@ impl WsCallback for KrakenWsCallback {
     async fn on_message(&mut self, message: Message, _received_time: jiff::Timestamp) -> AppResult<()> {
         match message {
             Message::Text(text) => {
-                let message_result = serde_json::from_str::<KrakenMessage>(&text);
-                match message_result {
-                    Ok(channel_message) => {
-                        // Unfortunately kraken does not provide instrument at top message level, this
-                        // is bit inconvient, given the fact that we may be in this state where the config
-                        // has changed, and we are not longer interested in the ticker for the old instruments.
-                        // TODO: handle this better, might be good idea to create a map of symbol -> messages
-                        if let KrakenMessage::ChannelMessage(channel_message) = channel_message {
-                            if self.channel_to_subscribe.read().contains(&channel_message.channel.to_string()) {
-                                log::info!("received kraken ticker message: {:?}", channel_message);
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        let response_result = serde_json::from_str::<KrakenResponse>(&text);
-                        match response_result {
-                            Ok(response) => {
-                                log::info!("received kraken response: {:?}", response);
-                            }
-                            Err(e) => {
-                                log::error!("error parsing kraken response: {}", e);
-                            }
-                        }
-                    }
+                if let Some(channel_message) = self.try_parsing_channel_message(&text) {
+                    log::info!("received kraken ticker message: {:?}", channel_message);
+                } else if let Some(response) = self.try_parsing_response(&text) {
+                    log::info!("received kraken response: {:?}", response);
+                } else {
+                    log::warn!("received unexpected message: {:?}", text);
                 }
             }
             Message::Close(close) => {
@@ -90,9 +80,10 @@ impl WsCallback for KrakenWsCallback {
                     log::error!("Kraken connection closed");
                 }
             }
-            _ => {
-                log::error!("received unexpected message: {:?}", message);
+            Message::Ping(ping) => {
+                self.client.write(Message::Pong(ping))?;
             }
+            _ => {}
         }
         Ok(())
     }
