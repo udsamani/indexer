@@ -15,4 +15,5 @@ pub use runner::*;
 pub use shared::*;
 pub use utils::timestamp_millis_serializer;
 pub use utils::timestamp_with_tz_serializer;
+pub use utils::static_config;
 pub use worker::*;
