@@ -1,7 +1,7 @@
 use common::{static_config, AppResult, Context, MpSc, Runner, Workers};
 use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
-use exchange::{BinanceWsClient, Exchange};
+use exchange::{BinanceWsClient, Exchange, KrakenWsClient};
 
 use crate::config::IndexerConfig;
 
@@ -9,12 +9,7 @@ pub struct IndexerRunner {
     context: Context,
 }
 
-#[allow(unused)]
 impl IndexerRunner {
-    pub fn new(context: Context) -> Self {
-        Self { context }
-    }
-
     pub async fn get_app_config(&self, config_key: &str, etcd_client: &mut EtcdClient) -> AppResult<IndexerConfig> {
         let config = etcd_client.get::<IndexerConfig>(config_key).await?;
         Ok(config)
@@ -44,10 +39,17 @@ impl Runner for IndexerRunner {
         let app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
         log::info!("initial app config: {:?}", app_config);
 
+        // Add EtcdWatcher
         let sender = MpSc::<String>::new(100);
-        let etcd_watcher = EtcdWatcher::<String>::new(self.context.clone(), etcd_client, sender, config_key);
+        let etcd_watcher = EtcdWatcher::<String>::new(
+            self.context.clone(),
+            etcd_client,
+            sender,
+            config_key,
+        );
         workers.add_worker(Box::new(etcd_watcher));
 
+        // Add Binance WsConsumer
         let binance_config = app_config.get_exchange_config(Exchange::Binance);
         if let Some(binance_config) = binance_config {
             let mut binance_ws_client = BinanceWsClient::new(binance_config.clone());
@@ -55,6 +57,15 @@ impl Runner for IndexerRunner {
             workers.add_worker(Box::new(binance_consumer));
         }
 
+        // Add Kraken WsConsumer
+        let kraken_config = app_config.get_exchange_config(Exchange::Kraken);
+        if let Some(kraken_config) = kraken_config {
+            let mut kraken_ws_client = KrakenWsClient::new(kraken_config.clone());
+            let kraken_consumer = kraken_ws_client.consumer(self.context.clone());
+            workers.add_worker(Box::new(kraken_consumer));
+        }
+
+        // Run Workers
         workers.run().await?;
         Ok("IndexerRunner".to_string())
     }

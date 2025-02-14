@@ -182,9 +182,6 @@ mod tests {
                 assert_eq!(ticker.last_trade_id, 18150);
                 assert_eq!(ticker.total_trades, 18151);
             }
-            _ => {
-              panic!("expected ticker data");
-            }
         }
     }
 

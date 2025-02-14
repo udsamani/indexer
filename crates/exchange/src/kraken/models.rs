@@ -36,6 +36,13 @@ pub enum KrakenResponseData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum KrakenMessage {
+    ChannelMessage(KrakenChannelMessage),
+    Heartbeat(KrakenHeartbeat),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KrakenChannelMessage {
     #[serde(rename = "type")]
     pub data_type: KrakenDataType,
@@ -53,6 +60,15 @@ pub struct KrakenHeartbeat {
 pub enum KrakenChannelType {
     Ticker,
     Heartbeat,
+}
+
+impl std::fmt::Display for KrakenChannelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KrakenChannelType::Ticker => write!(f, "ticker"),
+            KrakenChannelType::Heartbeat => write!(f, "heartbeat"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,7 +198,7 @@ mod tests {
             }
         );
 
-        let message: KrakenChannelMessage = serde_json::from_value(json_value).unwrap();
+        let message: KrakenChannelMessage = serde_json::from_value(json_value.clone()).unwrap();
         assert!(matches!(message.data_type, KrakenDataType::Update));
         match message.data {
             KrakenChannelData::Ticker(tickers) => {
@@ -200,6 +216,14 @@ mod tests {
                 assert_eq!(ticker.change, dec!(-0.00017));
                 assert_eq!(ticker.change_pct, dec!(-0.17));
             }
+        }
+
+        let message: KrakenMessage = serde_json::from_value(json_value).unwrap();
+        match message {
+            KrakenMessage::ChannelMessage(message) => {
+                assert!(matches!(message.channel, KrakenChannelType::Ticker));
+            }
+            _ => panic!("Expected ChannelMessage"),
         }
     }
 
