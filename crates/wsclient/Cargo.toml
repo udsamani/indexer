@@ -1,0 +1,13 @@
+[package]
+name = "wsclient"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+log = { workspace = true }
+async-trait = { workspace = true }
+jiff = { workspace = true }
+futures-util = { workspace = true }

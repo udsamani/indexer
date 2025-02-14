@@ -4,6 +4,8 @@ pub type AppResult<T> = Result<T, AppError>;
 
 #[derive(Error, Debug)]
 pub enum AppError {
+    #[error("exit")]
+    Exit,
     #[error("{0}")]
     Warning(String),
     #[error("{0}")]
@@ -16,6 +18,12 @@ pub enum AppError {
     EtcdClientError(#[from] etcd_client::Error),
     #[error("{0}")]
     SerdeJsonError(#[from] serde_json::Error),
+    #[error("{0}")]
+    ChannelSendError(String),
+    #[error("{0}")]
+    WebsocketError(String),
+    #[error("{0}")]
+    GenericError(String),
 }
 
 impl From<config::ConfigError> for AppError {
