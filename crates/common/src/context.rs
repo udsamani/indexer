@@ -1,6 +1,6 @@
 use config::Config;
 
-use crate::AppResult;
+use crate::{AppError, AppResult};
 
 /// Context for the application
 ///
@@ -57,5 +57,9 @@ impl Context {
     pub fn log_and_exit(&self, message: &str) -> AppResult<String> {
         log::info!("exiting app = {} message = {}", self.name, message);
         Ok(message.to_string())
+    }
+
+    pub fn etcd_url(&self) -> AppResult<String> {
+        self.config.get_string("etcd_url").map_err(AppError::from)
     }
 }

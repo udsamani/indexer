@@ -14,6 +14,7 @@ tokio-tungstenite = { version = "0.26.1", features = ["native-tls"] }
 tokio = { version = "1.39.0", features = ["full"] }
 futures-util = { version = "0.3.31" }
 futures = { version = "0.3.31" }
+etcd-client = { version = "0.14.1" }
 
 ## Miscellaneous
 jiff = { version = "0.2.0" }

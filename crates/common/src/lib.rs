@@ -6,6 +6,7 @@ mod runner;
 mod shared;
 mod utils;
 mod worker;
+mod clients;
 
 pub use backoff::*;
 pub use context::*;
@@ -17,3 +18,4 @@ pub use utils::timestamp_millis_serializer;
 pub use utils::timestamp_with_tz_serializer;
 pub use utils::static_config;
 pub use worker::*;
+pub use clients::*;

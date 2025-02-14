@@ -10,4 +10,14 @@ pub enum AppError {
     NotImplemented(String),
     #[error("{0}")]
     Unrecoverable(String),
+    #[error("{0}")]
+    ConfigError(String),
+    #[error("{0}")]
+    EtcdClientError(#[from] etcd_client::Error),
+}
+
+impl From<config::ConfigError> for AppError {
+    fn from(error: config::ConfigError) -> Self {
+        AppError::ConfigError(error.to_string())
+    }
 }
