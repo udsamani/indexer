@@ -1,6 +1,6 @@
 use std::time::Duration;
 use futures_util::{SinkExt, StreamExt};
-use common::{AppError, AppResult, Backoff, Context, MpSc};
+use common::{AppError, AppResult, Backoff, Context, MpSc, SpawnResult, Worker};
 use jiff::Timestamp;
 use tokio::{io, sync::mpsc::Receiver};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
@@ -26,7 +26,7 @@ impl<C> WsConsumer<C>
 where
     C: Clone + WsCallback,
 {
-    pub async fn run(&mut self) -> AppResult<()> {
+    pub async fn run(&mut self) -> AppResult<String> {
         let mut receiver = self.mpsc.receiver().unwrap();
 
         loop {
@@ -140,5 +140,19 @@ where
 
     fn on_disconnect(&mut self) -> AppResult<()> {
         self.callback.on_disconnect()
+    }
+}
+
+
+impl<C> Worker for WsConsumer<C>
+where
+    C: Clone + WsCallback + Send + 'static
+{
+    fn spawn(&mut self) -> SpawnResult {
+        let mut consumer = self.clone();
+        consumer.mpsc = self.mpsc.clone_with_receiver();
+        tokio::spawn(async move {
+            consumer.run().await
+        })
     }
 }

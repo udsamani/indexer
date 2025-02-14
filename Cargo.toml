@@ -9,6 +9,8 @@ resolver = "2"
 common = { path = "./crates/common" }
 exchange = { path = "./crates/exchange" }
 etcd = { path = "./crates/etcd" }
+wsclient = { path = "./crates/wsclient" }
+
 
 ## Async Dependencies
 async-trait = { version = "0.1.86" }

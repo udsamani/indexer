@@ -1,11 +1,16 @@
-use exchange::ExchangeConfig;
+use exchange::{Exchange, ExchangeConfig};
 use serde::Deserialize;
 
-
-#[allow(unused)]
 #[derive(Debug, Deserialize)]
 pub struct IndexerConfig {
     pub exchanges: Vec<ExchangeConfig>,
+}
+
+
+impl IndexerConfig {
+    pub fn get_exchange_config(&self, exchange: Exchange) -> Option<&ExchangeConfig> {
+        self.exchanges.iter().find(|exchange_config| exchange_config.exchange == exchange)
+    }
 }
 
 #[cfg(test)]
