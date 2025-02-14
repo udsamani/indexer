@@ -26,6 +26,7 @@ impl Default for IndexerRunner {
 impl Runner for IndexerRunner {
     async fn run(&mut self) -> AppResult<String> {
         log::info!("starting indexer");
+        tokio::time::sleep(tokio::time::Duration::from_millis(100000)).await;
         Ok("IndexerRunner".to_string())
     }
 

@@ -1,0 +1,34 @@
+# Build artifacts
+target/
+**/target/
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker
+docker/
+docker-compose*.yml
+.dockerignore
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+
+# Documentation
+README.md
+docs/
+
+# Tests
+**/tests/
+**/benches/
+
+# Temporary files
+**/*.rs.bk

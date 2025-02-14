@@ -1,4 +1,5 @@
 .DEFAULT_GOAL := help
+TAG ?= $(shell git rev-parse --short HEAD)
 
 
 .PHONY: help
@@ -22,6 +23,15 @@ test: ## Run the tests
 .PHONY: build
 build: ## Build the project
 	@cargo build
+
+
+.PHONY: indexer-image
+indexer-image:         ## Build the indexer image
+	@docker buildx build \
+		-f ./docker/indexer/Dockerfile \
+		--tag indexer:$(TAG) \
+		--load \
+		.
 
 
 .PHONY: services
