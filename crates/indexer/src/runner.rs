@@ -1,14 +1,15 @@
-use common::{static_config, AppResult, Context, Runner};
+use common::{static_config, AppResult, Context, Runner, Workers};
 use config::Config;
+use etcd::EtcdWatcher;
 
 pub struct IndexerRunner {
-    _context: Context,
+    context: Context,
 }
 
 #[allow(unused)]
 impl IndexerRunner {
     pub fn new(context: Context) -> Self {
-        Self { _context: context }
+        Self { context }
     }
 }
 
@@ -17,7 +18,7 @@ impl Default for IndexerRunner {
     fn default() -> Self {
         let config = static_config::create_config(".env/indexer.env").build().unwrap();
         let context = Context::from_config(config);
-        Self { _context: context }
+        Self { context }
     }
 }
 
@@ -26,11 +27,17 @@ impl Default for IndexerRunner {
 impl Runner for IndexerRunner {
     async fn run(&mut self) -> AppResult<String> {
         log::info!("starting indexer");
-        tokio::time::sleep(tokio::time::Duration::from_millis(100000)).await;
+
+        let mut workers = Workers::new(self.context.clone(), 0);
+
+        let etcd_watcher = EtcdWatcher::<String>::from_context(self.context.clone(), "test".to_string());
+        workers.add_worker(Box::new(etcd_watcher));
+
+        workers.run().await?;
         Ok("IndexerRunner".to_string())
     }
 
     fn static_config(&self) -> &Config {
-        &self._context.config
+        &self.context.config
     }
 }

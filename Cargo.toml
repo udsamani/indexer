@@ -8,6 +8,8 @@ resolver = "2"
 [workspace.dependencies]
 common = { path = "./crates/common" }
 exchange = { path = "./crates/exchange" }
+etcd = { path = "./crates/etcd" }
+
 ## Async Dependencies
 async-trait = { version = "0.1.86" }
 tokio-tungstenite = { version = "0.26.1", features = ["native-tls"] }
@@ -25,6 +27,8 @@ rust_decimal = { version = "1.36.0" }
 rust_decimal_macros = { version = "1.36.0" }
 log = { version = "0.4.25" }
 config = { version = "0.15.8" }
+lazy_static = { version = "1.5.0" }
+prometheus = { version = "0.13.4" }
 
 ## Serialization Dependencies
 serde = { version = "1.0.217", features = ["derive"] }

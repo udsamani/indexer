@@ -1,4 +1,4 @@
-use crate::{AppResult, Context, SharedAsyncRef};
+use common::{AppResult, Context, SharedAsyncRef};
 
 /// A ETCD client that can be shared across threads.
 ///

@@ -10,3 +10,4 @@ log = { workspace = true }
 exchange = { workspace = true }
 config = { workspace = true }
 tokio = { workspace = true }
+etcd = { workspace = true }

@@ -1,0 +1,12 @@
+[package]
+name = "etcd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+etcd-client = { workspace = true, features = ["pub-response-field"] }
+tokio = { workspace = true }
+common = { workspace = true }
+log = { workspace = true }
+prometheus = { workspace = true }
+lazy_static = { workspace = true }
