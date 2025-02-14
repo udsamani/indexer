@@ -1,6 +1,8 @@
-use common::{static_config, AppResult, Context, Runner, Workers};
+use common::{static_config, AppResult, Context, MpSc, Runner, Workers};
 use config::Config;
-use etcd::EtcdWatcher;
+use etcd::{EtcdClient, EtcdWatcher};
+
+use crate::config::IndexerConfig;
 
 pub struct IndexerRunner {
     context: Context,
@@ -10,6 +12,11 @@ pub struct IndexerRunner {
 impl IndexerRunner {
     pub fn new(context: Context) -> Self {
         Self { context }
+    }
+
+    pub async fn get_app_config(&self, config_key: &str, etcd_client: &mut EtcdClient) -> AppResult<IndexerConfig> {
+        let config = etcd_client.get::<IndexerConfig>(config_key).await?;
+        Ok(config)
     }
 }
 
@@ -26,11 +33,18 @@ impl Default for IndexerRunner {
 #[async_trait::async_trait]
 impl Runner for IndexerRunner {
     async fn run(&mut self) -> AppResult<String> {
-        log::info!("starting indexer");
+        let config_key = self.context.config.get_string("app_config_key")?;
 
         let mut workers = Workers::new(self.context.clone(), 0);
+        let mut etcd_client = EtcdClient::from_context(&self.context).unwrap();
 
-        let etcd_watcher = EtcdWatcher::<String>::from_context(self.context.clone(), "test".to_string());
+        // Get App Config Intiailly.
+        // We expecte the app config to be present in etcd for initial startup.
+        let _app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
+        log::info!("initial app config: {:?}", _app_config);
+
+        let sender = MpSc::<String>::new(100);
+        let etcd_watcher = EtcdWatcher::<String>::new(self.context.clone(), etcd_client, sender, config_key);
         workers.add_worker(Box::new(etcd_watcher));
 
         workers.run().await?;

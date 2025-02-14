@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use common::{Context, MpSc, SpawnResult, Worker};
 
-use crate::{EtcdClient, ETCD_WATCHER_KEY_UPDATES};
+use crate::{EtcdClient, ETCD_WATCHER_MESSAGES};
 
 #[derive(Clone)]
 pub struct EtcdWatcher<M> {
@@ -46,7 +46,7 @@ impl<M> Worker for EtcdWatcher<M> {
                     _ = heartbeat_interval.tick() => {
                         log::info!("{} consumed {} messages since last heartbeat for key: {}", context.name, num_messages_since_last_heartbeat, key);
                         if num_messages_since_last_heartbeat > 0 {
-                            ETCD_WATCHER_KEY_UPDATES.with_label_values(&[&key]).inc_by(num_messages_since_last_heartbeat as f64);
+                            ETCD_WATCHER_MESSAGES.with_label_values(&[&key]).add(num_messages_since_last_heartbeat as f64);
                             num_messages_since_last_heartbeat = 0;
                         }
                     }

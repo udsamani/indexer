@@ -1,4 +1,5 @@
-use common::{AppResult, Context, SharedAsyncRef};
+use common::{AppError, AppResult, Context, SharedAsyncRef};
+use serde::de::DeserializeOwned;
 
 /// A ETCD client that can be shared across threads.
 ///
@@ -40,6 +41,19 @@ impl EtcdClient {
         let mut client = self.connection_manager().await?;
         let (watcher, stream) = client.watch(key, None).await?;
         Ok((watcher, stream))
+    }
+
+    /// Get a key
+    pub async fn get<M: DeserializeOwned>(&mut self, key: &str) -> AppResult<M> {
+        let mut client = self.connection_manager().await?;
+        let response = client.get(key, None).await?;
+
+        let value = response.kvs()
+         .first()
+         .ok_or_else(|| AppError::ConfigError(format!("key {} not found", key)))
+        .and_then(|kv| serde_json::from_slice::<M>(kv.value()).map_err(AppError::SerdeJsonError))?;
+
+        Ok(value)
     }
 }
 

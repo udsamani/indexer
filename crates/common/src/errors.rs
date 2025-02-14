@@ -14,6 +14,8 @@ pub enum AppError {
     ConfigError(String),
     #[error("{0}")]
     EtcdClientError(#[from] etcd_client::Error),
+    #[error("{0}")]
+    SerdeJsonError(#[from] serde_json::Error),
 }
 
 impl From<config::ConfigError> for AppError {

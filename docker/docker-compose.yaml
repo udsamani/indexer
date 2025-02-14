@@ -13,7 +13,7 @@ services:
     ports:
       - "3000:3000"
 
-  Etcd:
+  etcd:
     image: 'bitnami/etcd:latest'
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
