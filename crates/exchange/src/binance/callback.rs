@@ -1,8 +1,8 @@
-use std::collections::HashSet;
-
 use common::{AppResult, SharedRwRef};
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
+
+use crate::{ExchangeConfig, ExchangeConfigChangeHandler};
 
 use super::{BinanceChannelMessage, BinanceRequest, BinanceRequestMethod, BinanceResponse};
 
@@ -10,26 +10,25 @@ use super::{BinanceChannelMessage, BinanceRequest, BinanceRequestMethod, Binance
 #[derive(Clone)]
 pub struct BinanceWsCallback {
     ws_client: WsClient,
-    instruments_to_subscribe: SharedRwRef<HashSet<String>>,
-    channel_to_subscribe: SharedRwRef<HashSet<String>>,
+    exchange_config: SharedRwRef<ExchangeConfig>,
     next_request_id: u64,
 }
 
 
 impl BinanceWsCallback {
 
-    pub fn new(ws_client: WsClient, instruments_to_subscribe: HashSet<String>, channel_to_subscribe: HashSet<String>) -> Self {
+    pub fn new(ws_client: WsClient, exchange_config: SharedRwRef<ExchangeConfig>) -> Self {
         Self {
             ws_client,
-            instruments_to_subscribe: SharedRwRef::new(instruments_to_subscribe),
-            channel_to_subscribe: SharedRwRef::new(channel_to_subscribe),
+            exchange_config,
             next_request_id: 0,
         }
     }
 
     pub fn get_subscription_request(&mut self) -> BinanceRequest {
-        let instruments = self.instruments_to_subscribe.read();
-        let channels = self.channel_to_subscribe.read();
+        let exchange_config = self.exchange_config.read();
+        let instruments = exchange_config.get_instruments();
+        let channels = exchange_config.get_channels();
         let mut params = Vec::new();
         for instrument in instruments.iter() {
             for channel in channels.iter() {
@@ -68,9 +67,9 @@ impl WsCallback for BinanceWsCallback {
         match message {
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
-                    log::info!("received binance ticker message: {:?}", channel_message);
+                    log::debug!("received binance ticker message: {:?}", channel_message);
                 } else if let Some(response) = self.try_parsing_response(&text) {
-                    log::info!("received binance response: {:?}", response);
+                    log::debug!("received binance response: {:?}", response);
                 } else {
                     log::warn!("received unexpected message: {:?}", text);
                 }
@@ -100,5 +99,12 @@ impl WsCallback for BinanceWsCallback {
     fn on_heartbeat(&mut self) -> AppResult<()> {
         log::debug!("binance ws heartbeat");
         Ok(())
+    }
+}
+
+impl ExchangeConfigChangeHandler for BinanceWsCallback {
+    fn handle_config_change(&self, config: ExchangeConfig) {
+        log::info!("binance config changed: {:?}", config);
+        *self.exchange_config.write() = config;
     }
 }

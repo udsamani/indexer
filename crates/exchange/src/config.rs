@@ -33,7 +33,7 @@ pub struct ExchangeConfig {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Exchange {
     Kraken,
@@ -59,6 +59,11 @@ impl ExchangeConfig {
     pub fn get_channels(&self) -> HashSet<String> {
         self.channels.clone().into_iter().collect()
     }
+}
+
+
+pub trait ExchangeConfigChangeHandler {
+    fn handle_config_change(&self, config: ExchangeConfig);
 }
 
 

@@ -1,37 +1,60 @@
-use std::time::Duration;
+use std::{marker::PhantomData, time::Duration};
 
-use common::{Context, MpSc, SpawnResult, Worker};
+use common::{Context, SpawnResult, Worker};
+use serde::de::DeserializeOwned;
 
 use crate::{EtcdClient, ETCD_WATCHER_MESSAGES};
 
 #[derive(Clone)]
-pub struct EtcdWatcher<M> {
+pub struct EtcdWatcher<H, C>
+where
+    H: EtcdWatcherHandler<C>,
+    C: DeserializeOwned + Send + 'static + Clone,
+{
     context: Context,
     client: EtcdClient,
-    sender: MpSc<M>,
+    handlers: Vec<H>,
     key: String,
+    _marker: PhantomData<C>,
 }
 
 
-impl<M> EtcdWatcher<M> {
-    pub fn new(context: Context, client: EtcdClient, sender: MpSc<M>, key: String) -> Self {
-        Self { context, client, sender, key }
+impl<H, C> EtcdWatcher<H, C>
+where
+    H: EtcdWatcherHandler<C> + Clone + Send + 'static,
+    C: DeserializeOwned + Send + 'static + Clone,
+{
+    pub fn new(context: Context, client: EtcdClient, key: String) -> Self {
+        Self {
+            context,
+            client,
+            handlers: Vec::new(),
+            key,
+            _marker: PhantomData,
+        }
     }
 
     pub fn from_context(context: Context, key: String) -> Self {
         let client = EtcdClient::from_context(&context).unwrap();
-        let sender = MpSc::new(100);
-        Self::new(context, client, sender, key)
+        Self::new(context, client, key)
+    }
+
+    pub fn add_handler(&mut self, handler: H) {
+        self.handlers.push(handler);
     }
 }
 
 
-impl<M> Worker for EtcdWatcher<M> {
+impl<H, C> Worker for EtcdWatcher<H, C>
+where
+    H: EtcdWatcherHandler<C> + Clone + Send + 'static,
+    C: DeserializeOwned + Send + 'static + Clone,
+{
     fn spawn(&mut self) -> SpawnResult {
         let mut client = self.client.clone();
         let key = self.key.clone();
-        let _sender = self.sender.sender();
         let context = self.context.clone();
+        let watcher = self.clone();
 
         tokio::spawn(async move {
             let heartbeat_duration = context.config.get_int("etcd_heartbeat_interval_millis").unwrap_or(5000) as u64;
@@ -50,9 +73,19 @@ impl<M> Worker for EtcdWatcher<M> {
                             num_messages_since_last_heartbeat = 0;
                         }
                     }
-                    event = stream.message() => {
+                    message = stream.message() => {
                         num_messages_since_last_heartbeat += 1;
-                        log::info!("{:?}", event);
+                        if let Ok(Some(response)) = message {
+                            for event in response.events() {
+                                if let Some(kv) = event.kv() {
+                                    //TODO: handle error
+                                    let config: C = serde_json::from_slice::<C>(kv.value()).unwrap();
+                                    for handler in watcher.handlers.iter() {
+                                        handler.handle_config_change(config.clone());
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -60,4 +93,12 @@ impl<M> Worker for EtcdWatcher<M> {
 
 
     }
+}
+
+
+pub trait EtcdWatcherHandler<C>
+where
+    C: DeserializeOwned + Send + 'static + Clone,
+{
+    fn handle_config_change(&self, config: C);
 }

@@ -2,7 +2,7 @@ use common::{AppResult, SharedRwRef};
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
-use crate::ExchangeConfig;
+use crate::{ExchangeConfig, ExchangeConfigChangeHandler};
 
 use super::{CoinbaseChannelMessage, CoinbaseRequest, CoinbaseRequestType, CoinbaseResponse};
 
@@ -81,5 +81,11 @@ impl WsCallback for CoinbaseWsCallback {
 
     fn on_heartbeat(&mut self) -> AppResult<()> {
         Ok(())
+    }
+}
+
+impl ExchangeConfigChangeHandler for CoinbaseWsCallback {
+    fn handle_config_change(&self, config: ExchangeConfig) {
+        *self.exchange_config.write() = config;
     }
 }

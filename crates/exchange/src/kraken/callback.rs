@@ -1,16 +1,15 @@
-use std::collections::HashSet;
-
 use common::{AppResult, SharedRwRef};
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
+
+use crate::{ExchangeConfig, ExchangeConfigChangeHandler};
 
 use super::{KrakenMessage, KrakenRequest, KrakenRequestParams, KrakenResponse};
 
 #[derive(Clone)]
 pub struct KrakenWsCallback {
     client: WsClient,
-    instruments_to_subscribe: SharedRwRef<HashSet<String>>,
-    channel_to_subscribe: SharedRwRef<HashSet<String>>,
+    exchange_config: SharedRwRef<ExchangeConfig>,
 }
 
 
@@ -18,19 +17,17 @@ pub struct KrakenWsCallback {
 impl KrakenWsCallback {
     pub fn new(
         client: WsClient,
-        instruments_to_subscribe: HashSet<String>,
-        channel_to_subscribe: HashSet<String>,
+        exchange_config: SharedRwRef<ExchangeConfig>,
     ) -> Self {
         Self {
             client,
-            instruments_to_subscribe: SharedRwRef::new(instruments_to_subscribe),
-            channel_to_subscribe: SharedRwRef::new(channel_to_subscribe),
+            exchange_config,
         }
     }
 
     pub fn get_subscription_request(&mut self) -> Vec<KrakenRequest> {
-        let instruments = self.instruments_to_subscribe.read().clone();
-        let channels = self.channel_to_subscribe.read().clone();
+        let instruments = self.exchange_config.read().get_instruments();
+        let channels = self.exchange_config.read().get_channels();
         let mut requests = Vec::new();
         for instrument in instruments.iter() {
             for channel in channels.iter() {
@@ -96,5 +93,12 @@ impl WsCallback for KrakenWsCallback {
     fn on_heartbeat(&mut self) -> AppResult<()> {
         log::debug!("kraken ws heartbeat");
         Ok(())
+    }
+}
+
+
+impl ExchangeConfigChangeHandler for KrakenWsCallback {
+    fn handle_config_change(&self, config: ExchangeConfig) {
+        *self.exchange_config.write() = config;
     }
 }

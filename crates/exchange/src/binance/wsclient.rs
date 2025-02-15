@@ -21,13 +21,9 @@ impl BinanceWsClient {
     }
 
     pub fn consumer(&mut self, context: Context) -> WsConsumer<BinanceWsCallback> {
-        let instruments = self.config.read().instruments.clone().into_iter().collect();
-        let channels = self.config.read().channels.clone().into_iter().collect();
-
         let callback = BinanceWsCallback::new(
             self.client.clone(),
-            instruments,
-            channels,
+            self.config.clone(),
         );
         self.client.consumer(context, callback)
     }

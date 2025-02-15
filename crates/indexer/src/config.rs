@@ -1,7 +1,14 @@
-use exchange::{Exchange, ExchangeConfig};
+use std::collections::HashMap;
+
+use common::SharedRwRef;
+use etcd::EtcdWatcherHandler;
+use exchange::{Exchange, ExchangeConfig, ExchangeConfigChangeHandler};
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+
+pub type ExchangeConfigHandlerRef = Box<dyn ExchangeConfigChangeHandler + Send + Sync>;
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct IndexerConfig {
     pub exchanges: Vec<ExchangeConfig>,
 }
@@ -10,6 +17,31 @@ pub struct IndexerConfig {
 impl IndexerConfig {
     pub fn get_exchange_config(&self, exchange: Exchange) -> Option<&ExchangeConfig> {
         self.exchanges.iter().find(|exchange_config| exchange_config.exchange == exchange)
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct IndexerConfigChangeHandler {
+    pub callback: SharedRwRef<HashMap<Exchange, ExchangeConfigHandlerRef>>,
+}
+
+impl IndexerConfigChangeHandler {
+    pub fn new() -> Self {
+        Self { callback: SharedRwRef::new(HashMap::new()) }
+    }
+
+    pub fn add_handler(&mut self, exchange: Exchange, handler: ExchangeConfigHandlerRef) {
+        self.callback.write().insert(exchange, handler);
+    }
+}
+
+impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
+    fn handle_config_change(&self, config: IndexerConfig) {
+        for exchange_config in config.exchanges {
+            if let Some(handler) = self.callback.read().get(&exchange_config.exchange) {
+                handler.handle_config_change(exchange_config);
+            }
+        }
     }
 }
 

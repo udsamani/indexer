@@ -1,9 +1,8 @@
-use common::{static_config, AppResult, Context, MpSc, Runner, Workers};
+use common::{static_config, AppResult, Context, Runner, Workers};
 use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
 use exchange::{BinanceWsClient, CoinbaseWsClient, Exchange, KrakenWsClient};
-
-use crate::config::IndexerConfig;
+use crate::config::{IndexerConfig, IndexerConfigChangeHandler};
 
 pub struct IndexerRunner {
     context: Context,
@@ -39,21 +38,16 @@ impl Runner for IndexerRunner {
         let app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
         log::info!("initial app config: {:?}", app_config);
 
-        // Add EtcdWatcher
-        let sender = MpSc::<String>::new(100);
-        let etcd_watcher = EtcdWatcher::<String>::new(
-            self.context.clone(),
-            etcd_client,
-            sender,
-            config_key,
-        );
-        workers.add_worker(Box::new(etcd_watcher));
+
+        let mut indexer_config_change_handler = IndexerConfigChangeHandler::new();
+
 
         // Add Binance WsConsumer
         let binance_config = app_config.get_exchange_config(Exchange::Binance);
         if let Some(binance_config) = binance_config {
             let mut binance_ws_client = BinanceWsClient::new(binance_config.clone());
             let binance_consumer = binance_ws_client.consumer(self.context.clone());
+            indexer_config_change_handler.add_handler(Exchange::Binance, Box::new(binance_consumer.callback.clone()));
             workers.add_worker(Box::new(binance_consumer));
         }
 
@@ -62,6 +56,7 @@ impl Runner for IndexerRunner {
         if let Some(kraken_config) = kraken_config {
             let mut kraken_ws_client = KrakenWsClient::new(kraken_config.clone());
             let kraken_consumer = kraken_ws_client.consumer(self.context.clone());
+            indexer_config_change_handler.add_handler(Exchange::Kraken, Box::new(kraken_consumer.callback.clone()));
             workers.add_worker(Box::new(kraken_consumer));
         }
 
@@ -70,8 +65,18 @@ impl Runner for IndexerRunner {
         if let Some(coinbase_config) = coinbase_config {
             let mut coinbase_ws_client = CoinbaseWsClient::new(coinbase_config.clone());
             let coinbase_consumer = coinbase_ws_client.consumer(self.context.clone());
+            indexer_config_change_handler.add_handler(Exchange::Coinbase, Box::new(coinbase_consumer.callback.clone()));
             workers.add_worker(Box::new(coinbase_consumer));
         }
+
+        // Add EtcdWatcher
+        let mut etcd_watcher = EtcdWatcher::<IndexerConfigChangeHandler, IndexerConfig>::new(
+            self.context.clone(),
+            etcd_client,
+            config_key,
+        );
+        etcd_watcher.add_handler(indexer_config_change_handler);
+        workers.add_worker(Box::new(etcd_watcher));
 
         // Run Workers
         workers.run().await?;
