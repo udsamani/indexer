@@ -1,11 +1,10 @@
-use common::{AppResult, SharedRwRef};
+use common::{AppResult, SharedRwRef, Ticker};
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
 use crate::{ExchangeConfig, ExchangeConfigChangeHandler};
 
 use super::{CoinbaseChannelMessage, CoinbaseRequest, CoinbaseRequestType, CoinbaseResponse};
-
 
 #[derive(Clone)]
 pub struct CoinbaseWsCallback {
@@ -15,7 +14,10 @@ pub struct CoinbaseWsCallback {
 
 impl CoinbaseWsCallback {
     pub fn new(client: WsClient, exchange_config: SharedRwRef<ExchangeConfig>) -> Self {
-        Self { client, exchange_config }
+        Self {
+            client,
+            exchange_config,
+        }
     }
 
     pub fn subscribe(&self) -> AppResult<()> {
@@ -43,23 +45,29 @@ impl CoinbaseWsCallback {
 
     fn has_config_changed(&self, config: &ExchangeConfig) -> bool {
         let exchange_config = self.exchange_config.read();
-        exchange_config.get_instruments() != config.get_instruments() ||
-            exchange_config.get_channels() != config.get_channels()
+        exchange_config.get_instruments() != config.get_instruments()
+            || exchange_config.get_channels() != config.get_channels()
     }
 
     fn unsubscribe(&self, config: &ExchangeConfig) -> AppResult<()> {
         let unsubscribe_request = CoinbaseRequest {
             request_type: CoinbaseRequestType::Unsubscribe,
-            product_ids: config.get_instruments().iter().map(|s| s.to_string()).collect(),
-            channels: config.get_channels().iter().map(|s| s.to_string()).collect(),
+            product_ids: config
+                .get_instruments()
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            channels: config
+                .get_channels()
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         };
         let json = serde_json::to_string(&unsubscribe_request)?;
         self.client.write(Message::Text(Utf8Bytes::from(&json)))?;
         Ok(())
     }
-
 }
-
 
 #[async_trait::async_trait]
 impl WsCallback for CoinbaseWsCallback {
@@ -68,11 +76,18 @@ impl WsCallback for CoinbaseWsCallback {
         self.subscribe()
     }
 
-    async fn on_message(&mut self, message: Message, _received_time: jiff::Timestamp) -> AppResult<()> {
+    async fn on_message(
+        &mut self,
+        message: Message,
+        _received_time: jiff::Timestamp,
+    ) -> AppResult<()> {
         match message {
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
-                    log::debug!("received coinbase ticker message: {:?}", channel_message);
+                    if let CoinbaseChannelMessage::Ticker(ticker) = channel_message {
+                        let ticker: Ticker = ticker.into();
+                        log::info!("received coinbase ticker message: {:?}", ticker);
+                    }
                 } else if let Some(response) = self.try_parsing_response(&text) {
                     log::info!("received coinbase response: {:?}", response);
                 } else {

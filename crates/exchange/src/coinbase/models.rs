@@ -1,3 +1,4 @@
+use common::{Source, Ticker, TickerSymbol};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -64,7 +65,6 @@ pub struct CoinbaseSubscriptionsResponse {
     pub channels: Vec<CoinbaseSubscription>,
 }
 
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct CoinbaseSubscription {
     pub name: String,
@@ -78,6 +78,17 @@ pub enum Side {
     Sell,
 }
 
+impl From<CoinbaseTickerMessage> for Ticker {
+    fn from(message: CoinbaseTickerMessage) -> Self {
+        let symbol = TickerSymbol::from_coinbase_symbol(&message.product_id);
+        Ticker {
+            symbol: symbol.unwrap(),
+            price: message.price,
+            source: Source::Coinbase,
+            timestamp: message.time,
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
 
@@ -94,11 +105,14 @@ mod tests {
         };
 
         let serialized = serde_json::to_value(&request).unwrap();
-        assert_eq!(serialized, serde_json::json!({
-            "type": "subscribe",
-            "product_ids": ["BTC-USD"],
-            "channels": ["tickers"]
-        }));
+        assert_eq!(
+            serialized,
+            serde_json::json!({
+                "type": "subscribe",
+                "product_ids": ["BTC-USD"],
+                "channels": ["tickers"]
+            })
+        );
     }
 
     #[test]
@@ -110,7 +124,10 @@ mod tests {
         });
 
         let request: CoinbaseRequest = serde_json::from_value(json).unwrap();
-        assert!(matches!(request.request_type, CoinbaseRequestType::Subscribe));
+        assert!(matches!(
+            request.request_type,
+            CoinbaseRequestType::Subscribe
+        ));
         assert_eq!(request.product_ids, vec!["BTC-USD"]);
         assert_eq!(request.channels, vec!["tickers"]);
     }

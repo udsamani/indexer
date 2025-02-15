@@ -16,3 +16,4 @@ config = { workspace = true }
 dotenvy = { workspace = true }
 tracing-subscriber = { workspace = true }
 etcd-client = { workspace = true , features = ["pub-response-field"]}
+rust_decimal = { workspace = true }

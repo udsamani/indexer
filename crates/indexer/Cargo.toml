@@ -13,3 +13,5 @@ tokio = { workspace = true }
 etcd = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+jiff = { workspace = true }
+rust_decimal = { workspace = true }

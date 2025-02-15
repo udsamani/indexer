@@ -22,12 +22,12 @@ services:
       - 2379:2379
       - 2380:2380
 
-  indexer:
-    build:
-      context: ..
-      dockerfile: ./docker/indexer/Dockerfile
-    image: indexer:latest
-    environment:
-      - LOG_LEVEL=debug
-      - TOKIO_WORKER_THREADS=4
-      - APP_NAME=indexer
+  # indexer:
+  #   build:
+  #     context: ..
+  #     dockerfile: ./docker/indexer/Dockerfile
+  #   image: indexer:latest
+  #   environment:
+  #     - LOG_LEVEL=debug
+  #     - TOKIO_WORKER_THREADS=4
+  #     - APP_NAME=indexer

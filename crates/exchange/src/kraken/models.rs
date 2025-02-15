@@ -1,7 +1,7 @@
+use common::{Source, Ticker, TickerSymbol};
 use jiff::Timestamp;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "method", rename_all = "lowercase")]
@@ -9,7 +9,6 @@ pub enum KrakenRequest {
     Subscribe { params: KrakenRequestParams },
     Unsubscribe { params: KrakenRequestParams },
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KrakenRequestParams {
@@ -31,8 +30,8 @@ pub struct KrakenResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "method", rename_all = "lowercase")]
 pub enum KrakenResponseData {
-    Subscribe{result: KrakenResponseResult},
-    Unsubscribe{result: KrakenResponseResult},
+    Subscribe { result: KrakenResponseResult },
+    Unsubscribe { result: KrakenResponseResult },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -40,6 +39,18 @@ pub enum KrakenResponseData {
 pub enum KrakenMessage {
     ChannelMessage(KrakenChannelMessage),
     Heartbeat(KrakenHeartbeat),
+}
+
+impl KrakenMessage {
+    pub fn get_tickers_internal(&self) -> Vec<Ticker> {
+        let mut internal_tickers = Vec::new();
+        if let KrakenMessage::ChannelMessage(channel_message) = self {
+            if let KrakenChannelData::Ticker(tickers) = &channel_message.data {
+                internal_tickers.extend(tickers.iter().map(|ticker| ticker.into()));
+            }
+        }
+        internal_tickers
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -127,6 +138,18 @@ pub struct KrakenConnection {
     pub connection_id: u64,
 }
 
+impl From<&KrakenTicker> for Ticker {
+    fn from(message: &KrakenTicker) -> Self {
+        let symbol = TickerSymbol::from_kraken_symbol(&message.symbol);
+        Ticker {
+            symbol: symbol.unwrap(),
+            price: message.last,
+            source: Source::Kraken,
+            // No timestamp from Kraken :(
+            timestamp: Timestamp::now(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -134,7 +157,6 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-
 
     #[test]
     fn test_kraken_subscribe_request() {
@@ -160,7 +182,7 @@ mod tests {
     #[test]
     fn test_kraken_request_ack() {
         let timestamp = Timestamp::now();
-       let expected_json = json!({
+        let expected_json = json!({
             "method": "subscribe",
             "success": true,
             "time_in": timestamp.to_string(),
@@ -228,7 +250,7 @@ mod tests {
                 assert_eq!(ticker.high, dec!(0.10285));
                 assert_eq!(ticker.change, dec!(-0.00017));
                 assert_eq!(ticker.change_pct, dec!(-0.17));
-            },
+            }
             _ => panic!("Expected Ticker"),
         }
 

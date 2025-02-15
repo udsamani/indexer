@@ -1,3 +1,4 @@
+use common::{Source, Ticker, TickerSymbol};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -89,6 +90,19 @@ pub struct BinanceTicker {
     pub last_trade_id: u64,
     #[serde(rename = "n")]
     pub total_trades: u64,
+}
+
+impl From<BinanceChannelMessage> for Ticker {
+    fn from(message: BinanceChannelMessage) -> Self {
+        let BinanceChannelData::Ticker(ticker) = message.data;
+        let symbol = TickerSymbol::from_binance_symbol(&message.symbol);
+        Ticker {
+            symbol: symbol.unwrap(),
+            price: ticker.last_price,
+            source: Source::Binance,
+            timestamp: message.event_time,
+        }
+    }
 }
 
 

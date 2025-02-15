@@ -1,11 +1,10 @@
-use common::{AppResult, SharedRwRef};
+use common::{AppResult, SharedRwRef, Ticker};
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
 use crate::{ExchangeConfig, ExchangeConfigChangeHandler};
 
 use super::{BinanceChannelMessage, BinanceRequest, BinanceRequestMethod, BinanceResponse};
-
 
 #[derive(Clone)]
 pub struct BinanceWsCallback {
@@ -14,9 +13,7 @@ pub struct BinanceWsCallback {
     next_request_id: u64,
 }
 
-
 impl BinanceWsCallback {
-
     pub fn new(ws_client: WsClient, exchange_config: SharedRwRef<ExchangeConfig>) -> Self {
         Self {
             ws_client,
@@ -32,7 +29,11 @@ impl BinanceWsCallback {
         let mut params = Vec::new();
         for instrument in instruments.iter() {
             for channel in channels.iter() {
-                params.push(format!("{}@{}", instrument.to_lowercase(), channel.to_lowercase()));
+                params.push(format!(
+                    "{}@{}",
+                    instrument.to_lowercase(),
+                    channel.to_lowercase()
+                ));
             }
         }
         self.next_request_id += 1;
@@ -55,15 +56,19 @@ impl BinanceWsCallback {
 
     pub fn has_config_changed(&self, config: &ExchangeConfig) -> bool {
         let exchange_config = self.exchange_config.read();
-        exchange_config.get_instruments() != config.get_instruments() ||
-            exchange_config.get_channels() != config.get_channels()
+        exchange_config.get_instruments() != config.get_instruments()
+            || exchange_config.get_channels() != config.get_channels()
     }
 
     pub fn unsubscribe(&self, config: &ExchangeConfig) -> AppResult<()> {
         let mut params = Vec::new();
         for instrument in config.get_instruments().iter() {
             for channel in config.get_channels().iter() {
-                params.push(format!("{}@{}", instrument.to_lowercase(), channel.to_lowercase()));
+                params.push(format!(
+                    "{}@{}",
+                    instrument.to_lowercase(),
+                    channel.to_lowercase()
+                ));
             }
         }
         let request = BinanceRequest {
@@ -76,7 +81,6 @@ impl BinanceWsCallback {
     }
 }
 
-
 #[async_trait::async_trait]
 impl WsCallback for BinanceWsCallback {
     async fn on_connect(&mut self, timestamp: jiff::Timestamp) -> AppResult<()> {
@@ -84,11 +88,16 @@ impl WsCallback for BinanceWsCallback {
         self.subscribe()
     }
 
-    async fn on_message(&mut self, message: Message, _received_time: jiff::Timestamp) -> AppResult<()> {
+    async fn on_message(
+        &mut self,
+        message: Message,
+        _received_time: jiff::Timestamp,
+    ) -> AppResult<()> {
         match message {
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
-                    log::debug!("received binance ticker message: {:?}", channel_message);
+                    let ticker: Ticker = channel_message.into();
+                    log::debug!("received binance ticker message: {:?}", ticker);
                 } else if let Some(response) = self.try_parsing_response(&text) {
                     log::info!("received binance response: {:?}", response);
                 } else {

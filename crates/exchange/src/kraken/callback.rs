@@ -1,4 +1,4 @@
-use common::{AppResult, SharedRwRef};
+use common::{AppResult, SharedRwRef, Ticker};
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
@@ -12,13 +12,8 @@ pub struct KrakenWsCallback {
     exchange_config: SharedRwRef<ExchangeConfig>,
 }
 
-
-
 impl KrakenWsCallback {
-    pub fn new(
-        client: WsClient,
-        exchange_config: SharedRwRef<ExchangeConfig>,
-    ) -> Self {
+    pub fn new(client: WsClient, exchange_config: SharedRwRef<ExchangeConfig>) -> Self {
         Self {
             client,
             exchange_config,
@@ -34,8 +29,8 @@ impl KrakenWsCallback {
             requests.push(KrakenRequest::Subscribe {
                 params: KrakenRequestParams {
                     channel: channel.clone(),
-                    symbol: instruments.iter().map(|s| s.to_string()).collect()
-                }
+                    symbol: instruments.iter().map(|s| s.to_string()).collect(),
+                },
             });
         }
         for request in requests {
@@ -55,8 +50,8 @@ impl KrakenWsCallback {
 
     fn has_config_changed(&self, config: &ExchangeConfig) -> bool {
         let exchange_config = self.exchange_config.read();
-        exchange_config.get_instruments() != config.get_instruments() ||
-            exchange_config.get_channels() != config.get_channels()
+        exchange_config.get_instruments() != config.get_instruments()
+            || exchange_config.get_channels() != config.get_channels()
     }
 
     pub fn unsubscribe(&self, config: &ExchangeConfig) -> AppResult<()> {
@@ -65,8 +60,12 @@ impl KrakenWsCallback {
             requests.push(KrakenRequest::Unsubscribe {
                 params: KrakenRequestParams {
                     channel: channel.clone(),
-                    symbol: config.get_instruments().iter().map(|s| s.to_string()).collect()
-                }
+                    symbol: config
+                        .get_instruments()
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
+                },
             });
         }
         for request in requests {
@@ -77,7 +76,6 @@ impl KrakenWsCallback {
     }
 }
 
-
 #[async_trait::async_trait]
 impl WsCallback for KrakenWsCallback {
     async fn on_connect(&mut self, timestamp: jiff::Timestamp) -> AppResult<()> {
@@ -85,11 +83,18 @@ impl WsCallback for KrakenWsCallback {
         self.subscribe()
     }
 
-    async fn on_message(&mut self, message: Message, _received_time: jiff::Timestamp) -> AppResult<()> {
+    async fn on_message(
+        &mut self,
+        message: Message,
+        _received_time: jiff::Timestamp,
+    ) -> AppResult<()> {
         match message {
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
-                    log::debug!("received kraken ticker message: {:?}", channel_message);
+                    let tickers: Vec<Ticker> = channel_message.get_tickers_internal();
+                    if !tickers.is_empty() {
+                        log::info!("received kraken ticker message: {:?}", tickers);
+                    }
                 } else if let Some(response) = self.try_parsing_response(&text) {
                     log::info!("received kraken response: {:?}", response);
                 } else {
@@ -121,7 +126,6 @@ impl WsCallback for KrakenWsCallback {
         Ok(())
     }
 }
-
 
 impl ExchangeConfigChangeHandler for KrakenWsCallback {
     fn handle_config_change(&mut self, config: ExchangeConfig) -> AppResult<()> {
