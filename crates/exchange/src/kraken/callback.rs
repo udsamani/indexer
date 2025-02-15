@@ -26,8 +26,9 @@ impl KrakenWsCallback {
     }
 
     pub fn get_subscription_request(&mut self) -> Vec<KrakenRequest> {
-        let instruments = self.exchange_config.read().get_instruments();
-        let channels = self.exchange_config.read().get_channels();
+        let cfg = self.exchange_config.read();
+        let instruments = cfg.get_instruments();
+        let channels = cfg.get_channels();
         let mut requests = Vec::new();
         for instrument in instruments.iter() {
             for channel in channels.iter() {
@@ -98,7 +99,8 @@ impl WsCallback for KrakenWsCallback {
 
 
 impl ExchangeConfigChangeHandler for KrakenWsCallback {
-    fn handle_config_change(&self, config: ExchangeConfig) {
+    fn handle_config_change(&mut self, config: ExchangeConfig) -> AppResult<()> {
         *self.exchange_config.write() = config;
+        Ok(())
     }
 }

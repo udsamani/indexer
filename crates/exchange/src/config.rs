@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use common::AppResult;
 use serde::{Deserialize, Serialize};
 
 /// Configuration for establishing and maintaining a WebSocket connection to a cryptocurrency exchange.
@@ -27,8 +28,8 @@ use serde::{Deserialize, Serialize};
 pub struct ExchangeConfig {
     pub ws_url: String,
     pub exchange: Exchange,
-    pub channels: Vec<String>,
-    pub instruments: Vec<String>,
+    pub channels: HashSet<String>,
+    pub instruments: HashSet<String>,
     pub heartbeat_millis: u64,
 }
 
@@ -45,25 +46,25 @@ impl ExchangeConfig {
     pub fn new(
         ws_url: String,
         exchange: Exchange,
-        channels: Vec<String>,
-        instruments: Vec<String>,
+        channels: HashSet<String>,
+        instruments: HashSet<String>,
         heartbeat_millis: u64,
     ) -> Self {
         Self { ws_url, exchange, channels, instruments, heartbeat_millis }
     }
 
-    pub fn get_instruments(&self) -> HashSet<String> {
-        self.instruments.clone().into_iter().collect()
+    pub fn get_instruments(&self) -> &HashSet<String> {
+        &self.instruments
     }
 
-    pub fn get_channels(&self) -> HashSet<String> {
-        self.channels.clone().into_iter().collect()
+    pub fn get_channels(&self) -> &HashSet<String> {
+        &self.channels
     }
 }
 
 
 pub trait ExchangeConfigChangeHandler {
-    fn handle_config_change(&self, config: ExchangeConfig);
+    fn handle_config_change(&mut self, config: ExchangeConfig) -> AppResult<()>;
 }
 
 
@@ -84,10 +85,12 @@ mod tests {
         });
 
         let config: ExchangeConfig = serde_json::from_value(config_json).unwrap();
+        let channels = vec!["trades", "orderbook"].into_iter().map(|s| s.to_string()).collect::<HashSet<String>>();
+        let instruments = vec!["BTC-USD", "ETH-USD"].into_iter().map(|s| s.to_string()).collect::<HashSet<String>>();
         assert_eq!(config.ws_url, "wss://ws.exchange.com/socket");
         assert!(matches!(config.exchange, Exchange::Kraken));
-        assert_eq!(config.channels, vec!["trades", "orderbook"]);
-        assert_eq!(config.instruments, vec!["BTC-USD", "ETH-USD"]);
+        assert_eq!(config.channels, channels);
+        assert_eq!(config.instruments, instruments);
         assert_eq!(config.heartbeat_millis, 30000);
     }
 }

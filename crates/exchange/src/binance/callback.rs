@@ -25,7 +25,7 @@ impl BinanceWsCallback {
         }
     }
 
-    pub fn get_subscription_request(&mut self) -> BinanceRequest {
+    pub fn subscribe(&mut self) -> AppResult<()> {
         let exchange_config = self.exchange_config.read();
         let instruments = exchange_config.get_instruments();
         let channels = exchange_config.get_channels();
@@ -36,11 +36,13 @@ impl BinanceWsCallback {
             }
         }
         self.next_request_id += 1;
-        BinanceRequest {
+        let request = BinanceRequest {
             method: BinanceRequestMethod::Subscribe,
             params,
             id: self.next_request_id,
-        }
+        };
+        let json = serde_json::to_string(&request)?;
+        self.ws_client.write(Message::Text(Utf8Bytes::from(&json)))
     }
 
     pub fn try_parsing_channel_message(&self, text: &Utf8Bytes) -> Option<BinanceChannelMessage> {
@@ -51,6 +53,27 @@ impl BinanceWsCallback {
         serde_json::from_str::<BinanceResponse>(text).ok()
     }
 
+    pub fn has_config_changed(&self, config: &ExchangeConfig) -> bool {
+        let exchange_config = self.exchange_config.read();
+        exchange_config.get_instruments() != config.get_instruments() ||
+            exchange_config.get_channels() != config.get_channels()
+    }
+
+    pub fn unsubscribe(&self, config: &ExchangeConfig) -> AppResult<()> {
+        let mut params = Vec::new();
+        for instrument in config.get_instruments().iter() {
+            for channel in config.get_channels().iter() {
+                params.push(format!("{}@{}", instrument.to_lowercase(), channel.to_lowercase()));
+            }
+        }
+        let request = BinanceRequest {
+            method: BinanceRequestMethod::Unsubscribe,
+            params,
+            id: self.next_request_id,
+        };
+        let json = serde_json::to_string(&request)?;
+        self.ws_client.write(Message::Text(Utf8Bytes::from(&json)))
+    }
 }
 
 
@@ -58,9 +81,7 @@ impl BinanceWsCallback {
 impl WsCallback for BinanceWsCallback {
     async fn on_connect(&mut self, timestamp: jiff::Timestamp) -> AppResult<()> {
         log::info!("connected to {} at {}", self.ws_client.ws_url(), timestamp);
-        let request = self.get_subscription_request();
-        let json = serde_json::to_string(&request)?;
-        self.ws_client.write(Message::Text(Utf8Bytes::from(&json)))
+        self.subscribe()
     }
 
     async fn on_message(&mut self, message: Message, _received_time: jiff::Timestamp) -> AppResult<()> {
@@ -103,8 +124,14 @@ impl WsCallback for BinanceWsCallback {
 }
 
 impl ExchangeConfigChangeHandler for BinanceWsCallback {
-    fn handle_config_change(&self, config: ExchangeConfig) {
-        log::info!("binance config changed: {:?}", config);
-        *self.exchange_config.write() = config;
+    fn handle_config_change(&mut self, config: ExchangeConfig) -> AppResult<()> {
+        let subscription_changed = self.has_config_changed(&config);
+
+        if subscription_changed {
+            self.unsubscribe(&self.exchange_config.read())?;
+            *self.exchange_config.write() = config;
+            self.subscribe()?;
+        }
+        Ok(())
     }
 }

@@ -38,7 +38,7 @@ impl IndexerConfigChangeHandler {
 impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
     fn handle_config_change(&self, config: IndexerConfig) {
         for exchange_config in config.exchanges {
-            if let Some(handler) = self.callback.read().get(&exchange_config.exchange) {
+            if let Some(handler) = self.callback.write().get_mut(&exchange_config.exchange) {
                 handler.handle_config_change(exchange_config);
             }
         }
