@@ -1,4 +1,5 @@
-use common::{AppResult, SharedRwRef, Ticker};
+use common::{AppInternalMessage, AppResult, SharedRwRef, Ticker};
+use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
@@ -10,13 +11,19 @@ use super::{CoinbaseChannelMessage, CoinbaseRequest, CoinbaseRequestType, Coinba
 pub struct CoinbaseWsCallback {
     client: WsClient,
     exchange_config: SharedRwRef<ExchangeConfig>,
+    sender: Sender<AppInternalMessage>,
 }
 
 impl CoinbaseWsCallback {
-    pub fn new(client: WsClient, exchange_config: SharedRwRef<ExchangeConfig>) -> Self {
+    pub fn new(
+        client: WsClient,
+        exchange_config: SharedRwRef<ExchangeConfig>,
+        sender: Sender<AppInternalMessage>,
+    ) -> Self {
         Self {
             client,
             exchange_config,
+            sender,
         }
     }
 
@@ -81,12 +88,23 @@ impl WsCallback for CoinbaseWsCallback {
         message: Message,
         _received_time: jiff::Timestamp,
     ) -> AppResult<()> {
+
         match message {
+
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
                     if let CoinbaseChannelMessage::Ticker(ticker) = channel_message {
                         let ticker: Ticker = ticker.into();
-                        log::info!("received coinbase ticker message: {:?}", ticker);
+                        match self
+                            .sender
+                            .send(AppInternalMessage::Tickers(vec![ticker]))
+                            .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("failed to send ticker to consumer: {:?}", e);
+                            }
+                        }
                     }
                 } else if let Some(response) = self.try_parsing_response(&text) {
                     log::info!("received coinbase response: {:?}", response);
@@ -94,6 +112,7 @@ impl WsCallback for CoinbaseWsCallback {
                     log::warn!("received unexpected message: {:?}", text);
                 }
             }
+
             Message::Close(close) => {
                 if let Some(reason) = close {
                     log::error!("Coinbase connection closed: {}", reason);
@@ -101,6 +120,7 @@ impl WsCallback for CoinbaseWsCallback {
                     log::error!("Coinbase connection closed");
                 }
             }
+
             Message::Ping(ping) => {
                 self.client.write(Message::Pong(ping))?;
             }

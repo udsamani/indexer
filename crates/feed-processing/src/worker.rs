@@ -1,4 +1,4 @@
-use common::{AppError, Broadcaster, Context, MpSc, SpawnResult, Worker};
+use common::{AppError, Broadcaster, Context, MpSc, SharedRef, SpawnResult, Worker};
 
 use crate::FeedProcessor;
 
@@ -31,7 +31,7 @@ where
     sender: Broadcaster<O>,
 
     /// The implementation that processes input data into output data
-    processor: A,
+    processor: SharedRef<A>,
 }
 
 impl<I, O, A> FeedProcessingWorker<I, O, A>
@@ -46,7 +46,7 @@ where
             context,
             receiver,
             sender,
-            processor,
+            processor: SharedRef::new(processor),
         }
     }
 
@@ -59,12 +59,16 @@ where
             processor: self.processor.clone(),
         }
     }
+
+    pub fn process(&mut self, input: &I) -> Option<O> {
+        self.processor.lock().process(input)
+    }
 }
 
 impl<I, O, A> Worker for FeedProcessingWorker<I, O, A>
 where
     I: Clone + Send + Sync + 'static,
-    O: Clone + Send + Sync + 'static,
+    O: Clone + Send + Sync + std::fmt::Debug + 'static,
     A: FeedProcessor<I, O> + Clone + Send + Sync + 'static,
 {
     fn spawn(&mut self) -> SpawnResult {
@@ -81,12 +85,13 @@ where
                 tokio::select! {
                     input = receiver.recv() => {
                         let input = input.unwrap();
-                        let output = worker.processor.process(&input);
+                        let output = worker.process(&input);
                         if let Some(output) = output {
                             //TODO: determine if this error should cause the application to exit
-                            if let Err(e) = worker.sender.try_send(output) {
-                                log::error!("error sending output to broadcaster: {}", e);
-                            }
+                            // if let Err(e) = worker.sender.try_send(output) {
+                            //     log::error!("error sending output to broadcaster: {}", e);
+                            // }
+                            log::info!("output: {:?}", output);
                         }
                     }
                 }

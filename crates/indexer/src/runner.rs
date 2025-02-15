@@ -1,29 +1,35 @@
-use common::{static_config, AppResult, Context, Runner, Workers};
+use crate::{
+    config::{IndexerConfig, IndexerConfigChangeHandler},
+    utils::{add_binance_workers, add_coinbase_workers, add_kraken_workers},
+};
+use common::{static_config, AppResult, Broadcaster, Context, Runner, Workers};
 use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
-use exchange::{BinanceWsClient, CoinbaseWsClient, Exchange, KrakenWsClient};
-use crate::config::{IndexerConfig, IndexerConfigChangeHandler};
 
 pub struct IndexerRunner {
     context: Context,
 }
 
 impl IndexerRunner {
-    pub async fn get_app_config(&self, config_key: &str, etcd_client: &mut EtcdClient) -> AppResult<IndexerConfig> {
+    pub async fn get_app_config(
+        &self,
+        config_key: &str,
+        etcd_client: &mut EtcdClient,
+    ) -> AppResult<IndexerConfig> {
         let config = etcd_client.get::<IndexerConfig>(config_key).await?;
         Ok(config)
     }
 }
 
-
 impl Default for IndexerRunner {
     fn default() -> Self {
-        let config = static_config::create_config(".env/indexer.env").build().unwrap();
+        let config = static_config::create_config(".env/indexer.env")
+            .build()
+            .unwrap();
         let context = Context::from_config(config);
         Self { context }
     }
 }
-
 
 #[async_trait::async_trait]
 impl Runner for IndexerRunner {
@@ -38,36 +44,35 @@ impl Runner for IndexerRunner {
         let app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
         log::info!("initial app config: {:?}", app_config);
 
-
         let mut indexer_config_change_handler = IndexerConfigChangeHandler::new();
+        let broadcaster = Broadcaster::new(2000);
 
+        // Add Binance Workers
+        add_binance_workers(
+            &self.context,
+            &mut workers,
+            &app_config,
+            broadcaster.clone(),
+            &mut indexer_config_change_handler,
+        );
 
-        // Add Binance WsConsumer
-        let binance_config = app_config.get_exchange_config(Exchange::Binance);
-        if let Some(binance_config) = binance_config {
-            let mut binance_ws_client = BinanceWsClient::new(binance_config.clone());
-            let binance_consumer = binance_ws_client.consumer(self.context.clone());
-            indexer_config_change_handler.add_handler(Exchange::Binance, Box::new(binance_consumer.callback.clone()));
-            workers.add_worker(Box::new(binance_consumer));
-        }
+        // Add Kraken Workers
+        add_kraken_workers(
+            &self.context,
+            &mut workers,
+            &app_config,
+            broadcaster.clone(),
+            &mut indexer_config_change_handler,
+        );
 
-        // Add Kraken WsConsumer
-        let kraken_config = app_config.get_exchange_config(Exchange::Kraken);
-        if let Some(kraken_config) = kraken_config {
-            let mut kraken_ws_client = KrakenWsClient::new(kraken_config.clone());
-            let kraken_consumer = kraken_ws_client.consumer(self.context.clone());
-            indexer_config_change_handler.add_handler(Exchange::Kraken, Box::new(kraken_consumer.callback.clone()));
-            workers.add_worker(Box::new(kraken_consumer));
-        }
-
-        // Add Coinbase WsConsumer
-        let coinbase_config = app_config.get_exchange_config(Exchange::Coinbase);
-        if let Some(coinbase_config) = coinbase_config {
-            let mut coinbase_ws_client = CoinbaseWsClient::new(coinbase_config.clone());
-            let coinbase_consumer = coinbase_ws_client.consumer(self.context.clone());
-            indexer_config_change_handler.add_handler(Exchange::Coinbase, Box::new(coinbase_consumer.callback.clone()));
-            workers.add_worker(Box::new(coinbase_consumer));
-        }
+        // Add Coinbase Workers
+        add_coinbase_workers(
+            &self.context,
+            &mut workers,
+            &app_config,
+            broadcaster.clone(),
+            &mut indexer_config_change_handler,
+        );
 
         // Add EtcdWatcher
         let mut etcd_watcher = EtcdWatcher::<IndexerConfigChangeHandler, IndexerConfig>::new(

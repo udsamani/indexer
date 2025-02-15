@@ -19,5 +19,5 @@ pub trait FeedProcessor<I, O> {
     ///
     /// # Returns
     /// * `Option<O>` - The processed output if successful (`Some`), or `None` if processing failed
-    fn process(&self, input: &I) -> Option<O>;
+    fn process(&mut self, input: &I) -> Option<O>;
 }

@@ -1,4 +1,5 @@
-use common::{AppResult, SharedRwRef, Ticker};
+use common::{AppInternalMessage, AppResult, SharedRwRef, Ticker};
+use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
@@ -10,13 +11,19 @@ use super::{KrakenMessage, KrakenRequest, KrakenRequestParams, KrakenResponse};
 pub struct KrakenWsCallback {
     client: WsClient,
     exchange_config: SharedRwRef<ExchangeConfig>,
+    sender: Sender<AppInternalMessage>,
 }
 
 impl KrakenWsCallback {
-    pub fn new(client: WsClient, exchange_config: SharedRwRef<ExchangeConfig>) -> Self {
+    pub fn new(
+        client: WsClient,
+        exchange_config: SharedRwRef<ExchangeConfig>,
+        sender: Sender<AppInternalMessage>,
+    ) -> Self {
         Self {
             client,
             exchange_config,
+            sender,
         }
     }
 
@@ -93,7 +100,12 @@ impl WsCallback for KrakenWsCallback {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
                     let tickers: Vec<Ticker> = channel_message.get_tickers_internal();
                     if !tickers.is_empty() {
-                        log::info!("received kraken ticker message: {:?}", tickers);
+                        match self.sender.send(AppInternalMessage::Tickers(tickers)).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                log::error!("failed to send ticker to consumer: {:?}", e);
+                            }
+                        }
                     }
                 } else if let Some(response) = self.try_parsing_response(&text) {
                     log::info!("received kraken response: {:?}", response);

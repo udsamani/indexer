@@ -1,4 +1,5 @@
-use common::{AppResult, SharedRwRef, Ticker};
+use common::{AppInternalMessage, AppResult, SharedRwRef, Ticker};
+use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
@@ -10,14 +11,20 @@ use super::{BinanceChannelMessage, BinanceRequest, BinanceRequestMethod, Binance
 pub struct BinanceWsCallback {
     ws_client: WsClient,
     exchange_config: SharedRwRef<ExchangeConfig>,
+    producer: Sender<AppInternalMessage>,
     next_request_id: u64,
 }
 
 impl BinanceWsCallback {
-    pub fn new(ws_client: WsClient, exchange_config: SharedRwRef<ExchangeConfig>) -> Self {
+    pub fn new(
+        ws_client: WsClient,
+        exchange_config: SharedRwRef<ExchangeConfig>,
+        producer: Sender<AppInternalMessage>,
+    ) -> Self {
         Self {
             ws_client,
             exchange_config,
+            producer,
             next_request_id: 0,
         }
     }
@@ -97,7 +104,16 @@ impl WsCallback for BinanceWsCallback {
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
                     let ticker: Ticker = channel_message.into();
-                    log::debug!("received binance ticker message: {:?}", ticker);
+                    match self
+                        .producer
+                        .send(AppInternalMessage::Tickers(vec![ticker]))
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::error!("failed to send ticker to consumer: {:?}", e);
+                        }
+                    }
                 } else if let Some(response) = self.try_parsing_response(&text) {
                     log::info!("received binance response: {:?}", response);
                 } else {

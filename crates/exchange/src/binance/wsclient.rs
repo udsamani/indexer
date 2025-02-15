@@ -1,4 +1,5 @@
-use common::{Context, SharedRwRef};
+use common::{AppInternalMessage, Context, SharedRwRef};
+use tokio::sync::mpsc::Sender;
 use wsclient::{WsClient, WsConsumer};
 
 use crate::ExchangeConfig;
@@ -11,7 +12,6 @@ pub struct BinanceWsClient {
     config: SharedRwRef<ExchangeConfig>,
 }
 
-
 impl BinanceWsClient {
     pub fn new(config: ExchangeConfig) -> Self {
         Self {
@@ -20,11 +20,13 @@ impl BinanceWsClient {
         }
     }
 
-    pub fn consumer(&mut self, context: Context) -> WsConsumer<BinanceWsCallback> {
-        let callback = BinanceWsCallback::new(
-            self.client.clone(),
-            self.config.clone(),
-        );
-        self.client.consumer(context.with_name("binance-ws-consumer"), callback)
+    pub fn consumer(
+        &mut self,
+        context: Context,
+        sender: Sender<AppInternalMessage>,
+    ) -> WsConsumer<BinanceWsCallback> {
+        let callback = BinanceWsCallback::new(self.client.clone(), self.config.clone(), sender);
+        self.client
+            .consumer(context.with_name("binance-ws-consumer"), callback)
     }
 }

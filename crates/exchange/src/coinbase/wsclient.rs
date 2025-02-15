@@ -1,4 +1,5 @@
-use common::{Context, SharedRwRef};
+use common::{AppInternalMessage, Context, SharedRwRef};
+use tokio::sync::mpsc::Sender;
 use wsclient::{WsClient, WsConsumer};
 
 use crate::ExchangeConfig;
@@ -11,7 +12,6 @@ pub struct CoinbaseWsClient {
     config: SharedRwRef<ExchangeConfig>,
 }
 
-
 impl CoinbaseWsClient {
     pub fn new(config: ExchangeConfig) -> Self {
         Self {
@@ -20,11 +20,13 @@ impl CoinbaseWsClient {
         }
     }
 
-    pub fn consumer(&mut self, context: Context) -> WsConsumer<CoinbaseWsCallback> {
-        let callback = CoinbaseWsCallback::new(
-            self.ws_client.clone(),
-            self.config.clone(),
-        );
-        self.ws_client.consumer(context.with_name("coinbase-ws-consumer"), callback)
+    pub fn consumer(
+        &mut self,
+        context: Context,
+        sender: Sender<AppInternalMessage>,
+    ) -> WsConsumer<CoinbaseWsCallback> {
+        let callback = CoinbaseWsCallback::new(self.ws_client.clone(), self.config.clone(), sender);
+        self.ws_client
+            .consumer(context.with_name("coinbase-ws-consumer"), callback)
     }
 }

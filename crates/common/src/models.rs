@@ -24,9 +24,6 @@ pub enum Source {
     Indexer,
 }
 
-
-
-
 impl TickerSymbol {
     pub fn from_binance_symbol(symbol: &str) -> Option<Self> {
         match symbol {
@@ -53,4 +50,9 @@ impl TickerSymbol {
             _ => None,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AppInternalMessage {
+    Tickers(Vec<Ticker>),
 }
