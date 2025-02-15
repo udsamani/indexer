@@ -1,4 +1,5 @@
 mod backoff;
+mod broadcaster;
 mod context;
 mod errors;
 mod mpsc;
@@ -8,12 +9,13 @@ mod utils;
 mod worker;
 
 pub use backoff::*;
+pub use broadcaster::*;
 pub use context::*;
 pub use errors::*;
 pub use mpsc::*;
 pub use runner::*;
 pub use shared::*;
+pub use utils::static_config;
 pub use utils::timestamp_millis_serializer;
 pub use utils::timestamp_with_tz_serializer;
-pub use utils::static_config;
 pub use worker::*;

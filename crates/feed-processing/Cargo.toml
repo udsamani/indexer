@@ -1,0 +1,11 @@
+[package]
+name = "feed-processing"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = { workspace = true }
+common = { workspace = true }
+rust_decimal = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
