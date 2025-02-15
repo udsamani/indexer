@@ -25,6 +25,6 @@ impl BinanceWsClient {
             self.client.clone(),
             self.config.clone(),
         );
-        self.client.consumer(context, callback)
+        self.client.consumer(context.with_name("binance-ws-consumer"), callback)
     }
 }

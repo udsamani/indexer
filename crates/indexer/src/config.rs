@@ -39,7 +39,7 @@ impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
     fn handle_config_change(&self, config: IndexerConfig) {
         for exchange_config in config.exchanges {
             if let Some(handler) = self.callback.write().get_mut(&exchange_config.exchange) {
-                handler.handle_config_change(exchange_config);
+                let _ = handler.handle_config_change(exchange_config);
             }
         }
     }
@@ -90,13 +90,15 @@ mod tests {
         assert_eq!(indexer_config.exchanges[1].ws_url, "wss://ws.binance.com");
         assert_eq!(indexer_config.exchanges[2].ws_url, "wss://ws.coinbase.com");
 
-        assert_eq!(indexer_config.exchanges[0].channels, vec!["trades", "orderbook"]);
-        assert_eq!(indexer_config.exchanges[1].channels, vec!["trades", "orderbook"]);
-        assert_eq!(indexer_config.exchanges[2].channels, vec!["trades", "orderbook"]);
+        let channels = vec!["trades", "orderbook"].into_iter().map(|s| s.to_string()).collect();
+        assert_eq!(indexer_config.exchanges[0].channels, channels);
+        assert_eq!(indexer_config.exchanges[1].channels, channels);
+        assert_eq!(indexer_config.exchanges[2].channels, channels);
 
-        assert_eq!(indexer_config.exchanges[0].instruments, vec!["BTC-USD", "ETH-USD"]);
-        assert_eq!(indexer_config.exchanges[1].instruments, vec!["BTC-USD", "ETH-USD"]);
-        assert_eq!(indexer_config.exchanges[2].instruments, vec!["BTC-USD", "ETH-USD"]);
+        let instruments = vec!["BTC-USD", "ETH-USD"].into_iter().map(|s| s.to_string()).collect();
+        assert_eq!(indexer_config.exchanges[0].instruments, instruments);
+        assert_eq!(indexer_config.exchanges[1].instruments, instruments);
+        assert_eq!(indexer_config.exchanges[2].instruments, instruments);
 
         assert_eq!(indexer_config.exchanges[0].heartbeat_millis, 3000);
         assert_eq!(indexer_config.exchanges[1].heartbeat_millis, 3000);

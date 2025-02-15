@@ -25,6 +25,6 @@ impl CoinbaseWsClient {
             self.ws_client.clone(),
             self.config.clone(),
         );
-        self.ws_client.consumer(context, callback)
+        self.ws_client.consumer(context.with_name("coinbase-ws-consumer"), callback)
     }
 }

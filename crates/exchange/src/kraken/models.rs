@@ -108,7 +108,8 @@ pub struct KrakenResponseResult {
     pub channel: String,
     pub symbol: String,
     pub event_trigger: KrakenEventTrigger,
-    pub snapshot: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -301,8 +302,35 @@ mod tests {
             KrakenResponseData::Subscribe { result } => {
                 assert_eq!(result.channel, "ticker");
                 assert_eq!(result.symbol, "BTC/USD");
-                assert!(result.snapshot);
+                assert!(result.snapshot.unwrap());
                 assert!(matches!(result.event_trigger, KrakenEventTrigger::Trades));
+            }
+            _ => panic!("Expected Subscribe response"),
+        }
+    }
+
+    #[test]
+    fn test_kraken_subscribe_response_no_snapshot() {
+        let json = r#"{
+            "method": "unsubscribe",
+            "result": {
+                "channel": "ticker",
+                "event_trigger": "trades",
+                "symbol": "BTC/USD"
+            },
+            "success": true,
+            "time_in": "2025-02-14T21:33:53.961562Z",
+            "time_out": "2025-02-14T21:33:53.961612Z"
+        }"#;
+
+        let response: KrakenResponse = serde_json::from_str(json).unwrap();
+
+        assert!(response.success);
+        match response.response_data {
+            KrakenResponseData::Unsubscribe { result } => {
+                assert_eq!(result.channel, "ticker");
+                assert_eq!(result.symbol, "BTC/USD");
+                assert!(result.snapshot.is_none());
             }
             _ => panic!("Expected Subscribe response"),
         }

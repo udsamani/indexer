@@ -89,7 +89,10 @@ where
         loop {
             tokio::select! {
                 _ = app.recv() => {
-                    return Err(AppError::Exit);
+                    if let Err(e) = ws_stream.send(Message::Close(None)).await {
+                        return Err(AppError::GenericError(format!("error while sending close message to websocket: {}", e)));
+                    }
+                    return Ok(());
                 }
                 result = ws_stream.next() => {
                     match result {

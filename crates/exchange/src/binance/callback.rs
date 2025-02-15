@@ -90,7 +90,7 @@ impl WsCallback for BinanceWsCallback {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
                     log::debug!("received binance ticker message: {:?}", channel_message);
                 } else if let Some(response) = self.try_parsing_response(&text) {
-                    log::debug!("received binance response: {:?}", response);
+                    log::info!("received binance response: {:?}", response);
                 } else {
                     log::warn!("received unexpected message: {:?}", text);
                 }

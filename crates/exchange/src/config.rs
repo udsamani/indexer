@@ -16,11 +16,14 @@ use serde::{Deserialize, Serialize};
 /// use exchange::ExchangeConfig;
 /// use exchange::Exchange;
 ///
+/// let channels = vec!["trades", "orderbook"].into_iter().map(|s| s.to_string()).collect();
+/// let instruments = vec!["BTC-USD", "ETH-USD"].into_iter().map(|s| s.to_string()).collect();
+///
 /// let config = ExchangeConfig {
 ///     exchange: Exchange::Kraken,
 ///     ws_url: "wss://ws.exchange.com/socket".to_string(),
-///     channels: vec!["trades".to_string(), "orderbook".to_string()],
-///     instruments: vec!["BTC-USD".to_string()],
+///     channels,
+///     instruments,
 ///     heartbeat_millis: 30000,
 /// };
 /// ```

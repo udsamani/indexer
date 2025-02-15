@@ -25,17 +25,24 @@ impl KrakenWsCallback {
         }
     }
 
-    pub fn get_subscription_request(&mut self) -> Vec<KrakenRequest> {
+    pub fn subscribe(&mut self) -> AppResult<()> {
         let cfg = self.exchange_config.read();
         let instruments = cfg.get_instruments();
         let channels = cfg.get_channels();
         let mut requests = Vec::new();
-        for instrument in instruments.iter() {
-            for channel in channels.iter() {
-                requests.push(KrakenRequest::Subscribe { params: KrakenRequestParams { channel: channel.clone(), symbol: vec![instrument.clone()] } });
-            }
+        for channel in channels.iter() {
+            requests.push(KrakenRequest::Subscribe {
+                params: KrakenRequestParams {
+                    channel: channel.clone(),
+                    symbol: instruments.iter().map(|s| s.to_string()).collect()
+                }
+            });
         }
-        requests
+        for request in requests {
+            let json = serde_json::to_string(&request)?;
+            self.client.write(Message::Text(Utf8Bytes::from(&json)))?;
+        }
+        Ok(())
     }
 
     pub fn try_parsing_channel_message(&self, text: &Utf8Bytes) -> Option<KrakenMessage> {
@@ -45,6 +52,29 @@ impl KrakenWsCallback {
     pub fn try_parsing_response(&self, text: &Utf8Bytes) -> Option<KrakenResponse> {
         serde_json::from_str::<KrakenResponse>(text).ok()
     }
+
+    fn has_config_changed(&self, config: &ExchangeConfig) -> bool {
+        let exchange_config = self.exchange_config.read();
+        exchange_config.get_instruments() != config.get_instruments() ||
+            exchange_config.get_channels() != config.get_channels()
+    }
+
+    pub fn unsubscribe(&self, config: &ExchangeConfig) -> AppResult<()> {
+        let mut requests = Vec::new();
+        for channel in config.get_channels().iter() {
+            requests.push(KrakenRequest::Unsubscribe {
+                params: KrakenRequestParams {
+                    channel: channel.clone(),
+                    symbol: config.get_instruments().iter().map(|s| s.to_string()).collect()
+                }
+            });
+        }
+        for request in requests {
+            let json = serde_json::to_string(&request)?;
+            self.client.write(Message::Text(Utf8Bytes::from(&json)))?;
+        }
+        Ok(())
+    }
 }
 
 
@@ -52,19 +82,14 @@ impl KrakenWsCallback {
 impl WsCallback for KrakenWsCallback {
     async fn on_connect(&mut self, timestamp: jiff::Timestamp) -> AppResult<()> {
         log::info!("connected to {} at {}", self.client.ws_url(), timestamp);
-        let requests = self.get_subscription_request();
-        for request in requests {
-            let json = serde_json::to_string(&request)?;
-            self.client.write(Message::Text(Utf8Bytes::from(&json)))?;
-        }
-        Ok(())
+        self.subscribe()
     }
 
     async fn on_message(&mut self, message: Message, _received_time: jiff::Timestamp) -> AppResult<()> {
         match message {
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
-                    log::info!("received kraken ticker message: {:?}", channel_message);
+                    log::debug!("received kraken ticker message: {:?}", channel_message);
                 } else if let Some(response) = self.try_parsing_response(&text) {
                     log::info!("received kraken response: {:?}", response);
                 } else {
@@ -100,7 +125,12 @@ impl WsCallback for KrakenWsCallback {
 
 impl ExchangeConfigChangeHandler for KrakenWsCallback {
     fn handle_config_change(&mut self, config: ExchangeConfig) -> AppResult<()> {
-        *self.exchange_config.write() = config;
+        let subscription_changed = self.has_config_changed(&config);
+        if subscription_changed {
+            self.unsubscribe(&self.exchange_config.read())?;
+            *self.exchange_config.write() = config;
+            self.subscribe()?;
+        }
         Ok(())
     }
 }
