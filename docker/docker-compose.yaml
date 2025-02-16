@@ -21,13 +21,19 @@ services:
     ports:
       - 2379:2379
       - 2380:2380
-
-  # indexer:
-  #   build:
-  #     context: ..
-  #     dockerfile: ./docker/indexer/Dockerfile
-  #   image: indexer:latest
-  #   environment:
-  #     - LOG_LEVEL=debug
-  #     - TOKIO_WORKER_THREADS=4
-  #     - APP_NAME=indexer
+  
+  database:
+    image: "${REGISTRY_URL:-}postgres:15-alpine"
+    ports:
+      - 6432:5432
+    volumes:
+      - ${PWD}/.tmp/pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: ["postgres", "-c", "fsync=off", "-c", "full_page_writes=off"]
+    env_file:
+      - .dev.env
