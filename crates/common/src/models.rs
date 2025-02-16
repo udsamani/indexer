@@ -21,7 +21,8 @@ pub enum Source {
     Binance,
     Kraken,
     Coinbase,
-    Indexer,
+    IndexerSmoothing,
+    IndexerWeightedAverage,
 }
 
 impl TickerSymbol {
@@ -48,6 +49,15 @@ impl TickerSymbol {
             "BTC-USD" => Some(Self::BTCUSD),
             "ETH-USD" => Some(Self::ETHUSD),
             _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for TickerSymbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BTCUSD => write!(f, "BTCUSD"),
+            Self::ETHUSD => write!(f, "ETHUSD"),
         }
     }
 }
