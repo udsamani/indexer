@@ -1,5 +1,5 @@
 use common::{AppInternalMessage, AppResult, SharedRwRef, Ticker};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::broadcast::Sender;
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
@@ -107,7 +107,6 @@ impl WsCallback for BinanceWsCallback {
                     match self
                         .producer
                         .send(AppInternalMessage::Tickers(vec![ticker]))
-                        .await
                     {
                         Ok(_) => {}
                         Err(e) => {

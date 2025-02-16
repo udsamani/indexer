@@ -1,5 +1,5 @@
 use common::{AppInternalMessage, AppResult, SharedRwRef, Ticker};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::broadcast::Sender;
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
@@ -88,18 +88,12 @@ impl WsCallback for CoinbaseWsCallback {
         message: Message,
         _received_time: jiff::Timestamp,
     ) -> AppResult<()> {
-
         match message {
-
             Message::Text(text) => {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
                     if let CoinbaseChannelMessage::Ticker(ticker) = channel_message {
                         let ticker: Ticker = ticker.into();
-                        match self
-                            .sender
-                            .send(AppInternalMessage::Tickers(vec![ticker]))
-                            .await
-                        {
+                        match self.sender.send(AppInternalMessage::Tickers(vec![ticker])) {
                             Ok(_) => {}
                             Err(e) => {
                                 log::error!("failed to send ticker to consumer: {:?}", e);

@@ -60,6 +60,10 @@ where
         self.sender.clone()
     }
 
+    pub fn receiver(&self) -> Receiver<M> {
+        self.sender.subscribe()
+    }
+
     pub fn try_send(&self, message: M) -> AppResult<()> {
         if let Err(e) = self.sender.send(message) {
             return Err(AppError::ChannelSendError(e.to_string()));

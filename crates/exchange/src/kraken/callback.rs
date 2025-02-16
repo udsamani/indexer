@@ -1,5 +1,5 @@
 use common::{AppInternalMessage, AppResult, SharedRwRef, Ticker};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::broadcast::Sender;
 use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use wsclient::{WsCallback, WsClient};
 
@@ -100,7 +100,7 @@ impl WsCallback for KrakenWsCallback {
                 if let Some(channel_message) = self.try_parsing_channel_message(&text) {
                     let tickers: Vec<Ticker> = channel_message.get_tickers_internal();
                     if !tickers.is_empty() {
-                        match self.sender.send(AppInternalMessage::Tickers(tickers)).await {
+                        match self.sender.send(AppInternalMessage::Tickers(tickers)) {
                             Ok(_) => {}
                             Err(e) => {
                                 log::error!("failed to send ticker to consumer: {:?}", e);

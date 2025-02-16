@@ -1,5 +1,5 @@
 use common::{AppInternalMessage, Context, SharedRwRef};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::broadcast::Sender;
 use wsclient::{WsClient, WsConsumer};
 
 use crate::ExchangeConfig;

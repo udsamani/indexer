@@ -1,10 +1,10 @@
-use common::{AppInternalMessage, Broadcaster, Context, MpSc, Workers};
+use common::{AppInternalMessage, Broadcaster, Context, SharedRwRef, Workers};
 use exchange::{BinanceWsClient, CoinbaseWsClient, Exchange, KrakenWsClient};
 use feed_processing::FeedProcessingWorker;
 
 use crate::{
     config::{IndexerConfig, IndexerConfigChangeHandler},
-    processing::{SmoothingProcessor, SmoothingType},
+    processing::{SmaParams, SmoothingConfig, SmoothingProcessor},
 };
 
 pub fn add_binance_workers(
@@ -15,15 +15,18 @@ pub fn add_binance_workers(
     indexer_config_change_handler: &mut IndexerConfigChangeHandler,
 ) {
     let binance_config = app_config.get_exchange_config(Exchange::Binance);
-    let mut mpsc_binance = MpSc::new(500);
+    let binance_broadcaster = Broadcaster::new(500);
     if let Some(binance_config) = binance_config {
         // Create Feeding Processor for Binance
-        let smoothing_processor = SmoothingProcessor::new(SmoothingType::PassThrough);
+        let smoothing_config = SharedRwRef::new(SmoothingConfig::SimpleMovingAverage {
+            params: SmaParams { window: 20 },
+        });
+        let smoothing_processor = SmoothingProcessor::new(smoothing_config);
 
         // Create Feeding Processor Worker
         let feeding_processor_worker = FeedProcessingWorker::new(
             context.with_name("binance-feeding-processor-worker"),
-            mpsc_binance.clone_with_receiver(),
+            binance_broadcaster.clone(),
             broadcaster,
             smoothing_processor,
         );
@@ -35,7 +38,8 @@ pub fn add_binance_workers(
         let mut binance_ws_client = BinanceWsClient::new(binance_config.clone());
 
         // Create Binance WsConsumer
-        let binance_consumer = binance_ws_client.consumer(context.clone(), mpsc_binance.sender());
+        let binance_consumer =
+            binance_ws_client.consumer(context.clone(), binance_broadcaster.sender());
 
         // Add Binance WsConsumer to IndexerConfigChangeHandler
         indexer_config_change_handler.add_handler(
@@ -56,15 +60,18 @@ pub fn add_kraken_workers(
     indexer_config_change_handler: &mut IndexerConfigChangeHandler,
 ) {
     let kraken_config = app_config.get_exchange_config(Exchange::Kraken);
-    let mut mpsc_kraken = MpSc::new(500);
+    let kraken_broadcaster = Broadcaster::new(500);
     if let Some(kraken_config) = kraken_config {
         // Create Feeding Processor for Kraken
-        let smoothing_processor = SmoothingProcessor::new(SmoothingType::PassThrough);
+        let smoothing_config = SharedRwRef::new(SmoothingConfig::SimpleMovingAverage {
+            params: SmaParams { window: 20 },
+        });
+        let smoothing_processor = SmoothingProcessor::new(smoothing_config);
 
         // Create Feeding Processor Worker
         let feeding_processor_worker = FeedProcessingWorker::new(
             context.with_name("kraken-feeding-processor-worker"),
-            mpsc_kraken.clone_with_receiver(),
+            kraken_broadcaster.clone(),
             broadcaster,
             smoothing_processor,
         );
@@ -76,7 +83,8 @@ pub fn add_kraken_workers(
         let mut kraken_ws_client = KrakenWsClient::new(kraken_config.clone());
 
         // Create Kraken WsConsumer
-        let kraken_consumer = kraken_ws_client.consumer(context.clone(), mpsc_kraken.sender());
+        let kraken_consumer =
+            kraken_ws_client.consumer(context.clone(), kraken_broadcaster.sender());
 
         // Add Kraken WsConsumer to IndexerConfigChangeHandler
         indexer_config_change_handler
@@ -95,15 +103,18 @@ pub fn add_coinbase_workers(
     indexer_config_change_handler: &mut IndexerConfigChangeHandler,
 ) {
     let coinbase_config = app_config.get_exchange_config(Exchange::Coinbase);
-    let mut mpsc_coinbase = MpSc::new(500);
+    let coinbase_broadcaster = Broadcaster::new(500);
     if let Some(coinbase_config) = coinbase_config {
         // Create Feeding Processor for Coinbase
-        let smoothing_processor = SmoothingProcessor::new(SmoothingType::PassThrough);
+        let smoothing_config = SharedRwRef::new(SmoothingConfig::SimpleMovingAverage {
+            params: SmaParams { window: 20 },
+        });
+        let smoothing_processor = SmoothingProcessor::new(smoothing_config);
 
         // Create Feeding Processor Worker
         let feeding_processor_worker = FeedProcessingWorker::new(
             context.with_name("coinbase-feeding-processor-worker"),
-            mpsc_coinbase.clone_with_receiver(),
+            coinbase_broadcaster.clone(),
             broadcaster,
             smoothing_processor,
         );
@@ -116,7 +127,7 @@ pub fn add_coinbase_workers(
 
         // Create Coinbase WsConsumer
         let coinbase_consumer =
-            coinbase_ws_client.consumer(context.clone(), mpsc_coinbase.sender());
+            coinbase_ws_client.consumer(context.clone(), coinbase_broadcaster.sender());
 
         // Add Coinbase WsConsumer to IndexerConfigChangeHandler
         indexer_config_change_handler.add_handler(
