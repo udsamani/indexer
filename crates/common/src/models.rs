@@ -16,13 +16,26 @@ pub enum TickerSymbol {
     ETHUSD,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
 pub enum Source {
     Binance,
     Kraken,
     Coinbase,
     IndexerSmoothing,
     IndexerWeightedAverage,
+}
+
+impl std::fmt::Display for Source {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Binance => write!(f, "binance"),
+            Self::Kraken => write!(f, "kraken"),
+            Self::Coinbase => write!(f, "coinbase"),
+            Self::IndexerSmoothing => write!(f, "indexer_smoothing"),
+            Self::IndexerWeightedAverage => write!(f, "indexer_weighted_average"),
+        }
+    }
 }
 
 impl TickerSymbol {

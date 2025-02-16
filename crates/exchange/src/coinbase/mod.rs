@@ -1,5 +1,5 @@
-mod models;
 mod callback;
+mod models;
 mod wsclient;
 
 pub use callback::*;

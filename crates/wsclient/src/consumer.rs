@@ -1,12 +1,11 @@
-use std::time::Duration;
-use futures_util::{SinkExt, StreamExt};
 use common::{AppError, AppResult, Backoff, Context, MpSc, SpawnResult, Worker};
+use futures_util::{SinkExt, StreamExt};
 use jiff::Timestamp;
+use std::time::Duration;
 use tokio::{io, sync::mpsc::Receiver};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::WsCallback;
-
 
 #[derive(Clone)]
 pub struct WsConsumer<C>
@@ -20,7 +19,6 @@ where
     pub context: Context,
     pub mpsc: MpSc<Message>,
 }
-
 
 impl<C> WsConsumer<C>
 where
@@ -37,7 +35,10 @@ where
                     }
                 }
                 None => {
-                    return Err(AppError::WebsocketError(format!("failed to connect to websocket after {} attempts", self.backoff.get_iteration_count())));
+                    return Err(AppError::WebsocketError(format!(
+                        "failed to connect to websocket after {} attempts",
+                        self.backoff.get_iteration_count()
+                    )));
                 }
             }
 
@@ -71,13 +72,14 @@ where
                     log::error!("error while streaming websocket: {}", e);
                 }
             }
-
         }
     }
 
-
-
-    async fn stream<S>(&mut self, receiver: &mut Receiver<Message>, mut ws_stream: WebSocketStream<S>) -> AppResult<()>
+    async fn stream<S>(
+        &mut self,
+        receiver: &mut Receiver<Message>,
+        mut ws_stream: WebSocketStream<S>,
+    ) -> AppResult<()>
     where
         S: io::AsyncRead + io::AsyncWrite + Unpin + Send + 'static,
     {
@@ -132,7 +134,6 @@ where
                     num_messages_since_last_heartbeat = 0;
                 }
             }
-
         }
     }
 
@@ -146,16 +147,13 @@ where
     }
 }
 
-
 impl<C> Worker for WsConsumer<C>
 where
-    C: Clone + WsCallback + Send + 'static
+    C: Clone + WsCallback + Send + 'static,
 {
     fn spawn(&mut self) -> SpawnResult {
         let mut consumer = self.clone();
         consumer.mpsc = self.mpsc.clone_with_receiver();
-        tokio::spawn(async move {
-            consumer.run().await
-        })
+        tokio::spawn(async move { consumer.run().await })
     }
 }

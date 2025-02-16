@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-use common::{AppInternalMessage, SharedRwRef, Source, Ticker, TickerSymbol};
+use common::{AppInternalMessage, SharedRwRef, Ticker, TickerSymbol};
 use feed_processing::FeedProcessor;
 use jiff::Timestamp;
 use rust_decimal::Decimal;
@@ -108,7 +108,7 @@ impl FeedProcessor<AppInternalMessage, AppInternalMessage> for SmoothingProcesso
                             tickers_to_send.push(Ticker {
                                 symbol: ticker.symbol.clone(),
                                 price: smoothed_price,
-                                source: Source::IndexerSmoothing, // Use consistent source
+                                source: ticker.source.clone(),
                                 timestamp: Timestamp::now(),
                             });
                         }
@@ -161,8 +161,6 @@ impl FeedProcessor<AppInternalMessage, AppInternalMessage> for SmoothingProcesso
 
 #[cfg(test)]
 mod tests {
-    use common::{Source, TickerSymbol};
-    use jiff::Timestamp;
     use rust_decimal_macros::dec;
 
     use super::*;

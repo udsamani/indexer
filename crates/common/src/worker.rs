@@ -1,6 +1,6 @@
-use std::time::Duration;
 use futures::prelude::*;
 use futures::stream::FuturesUnordered;
+use std::time::Duration;
 use tokio::time::timeout;
 
 use crate::{AppResult, Context, SharedRef};
@@ -42,9 +42,8 @@ pub struct Workers {
     context: Context,
     delay_millis: u64,
     workers: Vec<WorkerRef>,
-    running: RunningFlag
+    running: RunningFlag,
 }
-
 
 impl Workers {
     pub fn new(context: Context, delay_millis: u64) -> Self {
@@ -64,7 +63,6 @@ impl Workers {
         self.spawn().await.unwrap()
     }
 }
-
 
 impl Worker for Workers {
     fn spawn(&mut self) -> SpawnResult {
@@ -124,7 +122,11 @@ impl Worker for Workers {
                         if let Ok(result) = result {
                             match result {
                                 Err(err) => {
-                                    log::error!("{} worker failed with error: {:?}", context.name, err);
+                                    log::error!(
+                                        "{} worker failed with error: {:?}",
+                                        context.name,
+                                        err
+                                    );
                                 }
                                 Ok(name) => {
                                     log::info!("worker {} exited", name);
@@ -134,20 +136,23 @@ impl Worker for Workers {
                             log::error!("worker error - {:?}", result);
                         }
                     }
-                }).await {
+                })
+                .await
+                {
                     Ok(_) => {
                         log::info!("all workers exited");
                     }
                     Err(_) => {
-                        log::error!("{} workers did not exit within timeout of {} ms", context.name, timeout_millis);
+                        log::error!(
+                            "{} workers did not exit within timeout of {} ms",
+                            context.name,
+                            timeout_millis
+                        );
                     }
                 }
-
-
             }
             running.stop();
             context.log_and_exit("stopped")
         })
-
     }
 }

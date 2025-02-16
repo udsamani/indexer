@@ -1,4 +1,3 @@
-
 mod callback;
 mod client;
 mod consumer;

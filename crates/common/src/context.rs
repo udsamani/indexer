@@ -17,7 +17,6 @@ pub struct Context {
     pub app: AppBroadcaster,
 }
 
-
 #[derive(Debug, Clone, Default)]
 pub enum AppMessage {
     /// Clean Exit
@@ -29,21 +28,33 @@ pub enum AppMessage {
 
 pub type AppBroadcaster = tokio::sync::broadcast::Sender<AppMessage>;
 
-
 impl Context {
-
     pub fn from_config(config: Config) -> Self {
-        let name = config.get_string("app_name").unwrap_or("default".to_string());
+        let name = config
+            .get_string("app_name")
+            .unwrap_or("default".to_string());
         let broadcaster = tokio::sync::broadcast::Sender::new(10);
-        Self { name, config, app: broadcaster }
+        Self {
+            name,
+            config,
+            app: broadcaster,
+        }
     }
 
     pub fn with_name(&self, name: &str) -> Self {
-        Self { name: name.to_string(), config: self.config.clone(), app: self.app.clone() }
+        Self {
+            name: name.to_string(),
+            config: self.config.clone(),
+            app: self.app.clone(),
+        }
     }
 
     pub fn with_config(&self, config: Config) -> Self {
-        Self { name: self.name.clone(), config, app: self.app.clone() }
+        Self {
+            name: self.name.clone(),
+            config,
+            app: self.app.clone(),
+        }
     }
 
     pub fn exit(&self) -> bool {

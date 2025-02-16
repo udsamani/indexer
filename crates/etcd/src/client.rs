@@ -8,14 +8,12 @@ use serde::de::DeserializeOwned;
 pub struct EtcdClient {
     etcd_url: String,
     etcd_conn_manager: SharedAsyncRef<EtcdConnectionManager>,
-
 }
 
 #[derive(Default)]
 struct EtcdConnectionManager {
     etcd_conn_manager: Option<etcd_client::Client>,
 }
-
 
 impl EtcdClient {
     /// Create a new ETCD client from a context
@@ -33,11 +31,18 @@ impl EtcdClient {
     }
 
     pub async fn connection_manager(&mut self) -> AppResult<etcd_client::Client> {
-        self.etcd_conn_manager.lock().await.get(&self.etcd_url).await
+        self.etcd_conn_manager
+            .lock()
+            .await
+            .get(&self.etcd_url)
+            .await
     }
 
     /// Watch a key
-    pub async fn watch(&mut self, key: &str) -> AppResult<(etcd_client::Watcher, etcd_client::WatchStream)> {
+    pub async fn watch(
+        &mut self,
+        key: &str,
+    ) -> AppResult<(etcd_client::Watcher, etcd_client::WatchStream)> {
         let mut client = self.connection_manager().await?;
         let (watcher, stream) = client.watch(key, None).await?;
         Ok((watcher, stream))
@@ -48,15 +53,17 @@ impl EtcdClient {
         let mut client = self.connection_manager().await?;
         let response = client.get(key, None).await?;
 
-        let value = response.kvs()
-         .first()
-         .ok_or_else(|| AppError::ConfigError(format!("key {} not found", key)))
-        .and_then(|kv| serde_json::from_slice::<M>(kv.value()).map_err(AppError::SerdeJsonError))?;
+        let value = response
+            .kvs()
+            .first()
+            .ok_or_else(|| AppError::ConfigError(format!("key {} not found", key)))
+            .and_then(|kv| {
+                serde_json::from_slice::<M>(kv.value()).map_err(AppError::SerdeJsonError)
+            })?;
 
         Ok(value)
     }
 }
-
 
 impl EtcdConnectionManager {
     pub async fn get(&mut self, etcd_url: &str) -> AppResult<etcd_client::Client> {

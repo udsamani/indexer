@@ -1,7 +1,7 @@
 mod client;
-mod watcher;
 mod metrics;
+mod watcher;
 
 pub use client::*;
-pub use watcher::*;
 pub use metrics::*;
+pub use watcher::*;

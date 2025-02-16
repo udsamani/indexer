@@ -18,7 +18,6 @@ where
     _marker: PhantomData<C>,
 }
 
-
 impl<H, C> EtcdWatcher<H, C>
 where
     H: EtcdWatcherHandler<C> + Clone + Send + 'static,
@@ -44,7 +43,6 @@ where
     }
 }
 
-
 impl<H, C> Worker for EtcdWatcher<H, C>
 where
     H: EtcdWatcherHandler<C> + Clone + Send + 'static,
@@ -57,8 +55,12 @@ where
         let watcher = self.clone();
 
         tokio::spawn(async move {
-            let heartbeat_duration = context.config.get_int("etcd_heartbeat_interval_millis").unwrap_or(5000) as u64;
-            let mut heartbeat_interval = tokio::time::interval(Duration::from_millis(heartbeat_duration));
+            let heartbeat_duration = context
+                .config
+                .get_int("etcd_heartbeat_interval_millis")
+                .unwrap_or(5000) as u64;
+            let mut heartbeat_interval =
+                tokio::time::interval(Duration::from_millis(heartbeat_duration));
             let mut num_messages_since_last_heartbeat = 0;
 
             log::info!("starting {} watcher for key: {}", context.name, key);
@@ -90,11 +92,8 @@ where
                 }
             }
         })
-
-
     }
 }
-
 
 pub trait EtcdWatcherHandler<C>
 where

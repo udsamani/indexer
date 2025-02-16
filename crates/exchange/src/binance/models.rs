@@ -2,16 +2,12 @@ use common::{Source, Ticker, TickerSymbol};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-
-
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BinanceRequest {
     pub method: BinanceRequestMethod,
     pub params: Vec<String>,
     pub id: u64,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -20,13 +16,11 @@ pub enum BinanceRequestMethod {
     Unsubscribe,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BinanceResponse {
     pub id: u64,
-    pub result: Option<String>
+    pub result: Option<String>,
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BinanceChannelMessage {
@@ -40,13 +34,11 @@ pub struct BinanceChannelMessage {
     pub data: BinanceChannelData,
 }
 
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum BinanceChannelData {
     Ticker(BinanceTicker),
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BinanceTicker {
@@ -105,7 +97,6 @@ impl From<BinanceChannelMessage> for Ticker {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use rust_decimal_macros::dec;
@@ -128,7 +119,6 @@ mod tests {
         });
         assert_eq!(json, expected_json);
     }
-
 
     #[test]
     fn test_binance_response_deserialize() {
@@ -170,7 +160,10 @@ mod tests {
         });
         let message: BinanceChannelMessage = serde_json::from_value(json).unwrap();
         assert_eq!(message.event_type, "24hrTicker");
-        assert_eq!(message.event_time, jiff::Timestamp::from_millisecond(1672515782136).unwrap());
+        assert_eq!(
+            message.event_time,
+            jiff::Timestamp::from_millisecond(1672515782136).unwrap()
+        );
         assert_eq!(message.symbol, "BNBBTC");
 
         match message.data {
@@ -198,6 +191,4 @@ mod tests {
             }
         }
     }
-
-
 }

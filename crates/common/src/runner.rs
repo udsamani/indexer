@@ -25,7 +25,7 @@ pub fn run_app<R: Runner>(mut runner: R) {
 }
 
 fn setup_telemetry(cfg: &Config) {
-    let log_formatter =  tracing_subscriber::fmt::layer()
+    let log_formatter = tracing_subscriber::fmt::layer()
         .with_thread_names(true)
         .with_thread_ids(true)
         .boxed();

@@ -44,7 +44,6 @@ pub mod timestamp_with_tz_serializer {
     }
 }
 
-
 pub mod timestamp_millis_serializer {
     use serde::{Deserialize, Deserializer};
 
@@ -53,8 +52,7 @@ pub mod timestamp_millis_serializer {
         D: Deserializer<'de>,
     {
         let s = u64::deserialize(deserializer)?;
-        jiff::Timestamp::from_millisecond(s as i64)
-            .map_err(serde::de::Error::custom)
+        jiff::Timestamp::from_millisecond(s as i64).map_err(serde::de::Error::custom)
     }
 
     #[allow(unused)]
@@ -93,8 +91,6 @@ pub mod timestamp_millis_serializer {
     }
 }
 
-
-
 pub mod static_config {
     use std::collections::HashMap;
     use std::env::vars;
@@ -111,8 +107,7 @@ pub mod static_config {
     pub fn create_config(env_path: &str) -> CfgBuilder {
         dotenvy::from_path_override(env_path).ok();
         let env_vars = vars().collect::<HashMap<String, String>>();
-        let source = Environment::default()
-            .source(Some(env_vars));
+        let source = Environment::default().source(Some(env_vars));
         Config::builder().add_source(source)
     }
 }

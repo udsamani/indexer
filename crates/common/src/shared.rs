@@ -30,7 +30,6 @@ impl<T> SharedRef<T> {
     }
 }
 
-
 pub struct SharedAsyncRef<T> {
     inner: Arc<tokio::sync::RwLock<T>>,
 }

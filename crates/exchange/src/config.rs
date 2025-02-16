@@ -36,7 +36,6 @@ pub struct ExchangeConfig {
     pub heartbeat_millis: u64,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Exchange {
@@ -53,7 +52,13 @@ impl ExchangeConfig {
         instruments: HashSet<String>,
         heartbeat_millis: u64,
     ) -> Self {
-        Self { ws_url, exchange, channels, instruments, heartbeat_millis }
+        Self {
+            ws_url,
+            exchange,
+            channels,
+            instruments,
+            heartbeat_millis,
+        }
     }
 
     pub fn get_instruments(&self) -> &HashSet<String> {
@@ -65,13 +70,9 @@ impl ExchangeConfig {
     }
 }
 
-
 pub trait ExchangeConfigChangeHandler {
     fn handle_config_change(&mut self, config: ExchangeConfig) -> AppResult<()>;
 }
-
-
-
 
 #[cfg(test)]
 mod tests {
@@ -88,8 +89,14 @@ mod tests {
         });
 
         let config: ExchangeConfig = serde_json::from_value(config_json).unwrap();
-        let channels = vec!["trades", "orderbook"].into_iter().map(|s| s.to_string()).collect::<HashSet<String>>();
-        let instruments = vec!["BTC-USD", "ETH-USD"].into_iter().map(|s| s.to_string()).collect::<HashSet<String>>();
+        let channels = vec!["trades", "orderbook"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<String>>();
+        let instruments = vec!["BTC-USD", "ETH-USD"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<String>>();
         assert_eq!(config.ws_url, "wss://ws.exchange.com/socket");
         assert!(matches!(config.exchange, Exchange::Kraken));
         assert_eq!(config.channels, channels);

@@ -1,12 +1,10 @@
 use crate::{
     config::{IndexerConfig, IndexerConfigChangeHandler},
-    processing::WeightedAverageProcessor,
     utils::{add_binance_workers, add_coinbase_workers, add_kraken_workers},
 };
 use common::{static_config, AppResult, Broadcaster, Context, Runner, Workers};
 use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
-use feed_processing::FeedProcessingWorker;
 
 pub struct IndexerRunner {
     context: Context,
@@ -77,15 +75,15 @@ impl Runner for IndexerRunner {
         );
 
         // Add Weighted Average Processor
-        let weighted_average_broadcaster = Broadcaster::new(2000);
-        let weighted_average_processor = WeightedAverageProcessor::new(vec![0.5, 0.5]);
-        let weighted_average_worker = FeedProcessingWorker::new(
-            self.context.clone().with_name("weighted-average-processor"),
-            broadcaster.clone(),
-            weighted_average_broadcaster.clone(),
-            weighted_average_processor,
-        );
-        workers.add_worker(Box::new(weighted_average_worker));
+        // let weighted_average_broadcaster = Broadcaster::new(2000);
+        // let weighted_average_processor = WeightedAverageProcessor::new(vec![0.5, 0.5]);
+        // let weighted_average_worker = FeedProcessingWorker::new(
+        //     self.context.clone().with_name("weighted-average-processor"),
+        //     broadcaster.clone(),
+        //     weighted_average_broadcaster.clone(),
+        //     weighted_average_processor,
+        // );
+        // workers.add_worker(Box::new(weighted_average_worker));
 
         // Add EtcdWatcher
         let mut etcd_watcher = EtcdWatcher::<IndexerConfigChangeHandler, IndexerConfig>::new(

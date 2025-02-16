@@ -5,7 +5,6 @@ use etcd::EtcdWatcherHandler;
 use exchange::{Exchange, ExchangeConfig, ExchangeConfigChangeHandler};
 use serde::Deserialize;
 
-
 pub type ExchangeConfigHandlerRef = Box<dyn ExchangeConfigChangeHandler + Send + Sync>;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -13,10 +12,11 @@ pub struct IndexerConfig {
     pub exchanges: Vec<ExchangeConfig>,
 }
 
-
 impl IndexerConfig {
     pub fn get_exchange_config(&self, exchange: Exchange) -> Option<&ExchangeConfig> {
-        self.exchanges.iter().find(|exchange_config| exchange_config.exchange == exchange)
+        self.exchanges
+            .iter()
+            .find(|exchange_config| exchange_config.exchange == exchange)
     }
 }
 
@@ -27,7 +27,9 @@ pub struct IndexerConfigChangeHandler {
 
 impl IndexerConfigChangeHandler {
     pub fn new() -> Self {
-        Self { callback: SharedRwRef::new(HashMap::new()) }
+        Self {
+            callback: SharedRwRef::new(HashMap::new()),
+        }
     }
 
     pub fn add_handler(&mut self, exchange: Exchange, handler: ExchangeConfigHandlerRef) {
@@ -53,7 +55,6 @@ mod tests {
 
     #[test]
     fn test_indexer_config_deserialize() {
-
         let config = serde_json::json!({
             "exchanges": [
                 {
@@ -82,20 +83,35 @@ mod tests {
 
         let indexer_config: IndexerConfig = serde_json::from_value(config).unwrap();
         assert_eq!(indexer_config.exchanges.len(), 3);
-        assert!(matches!(indexer_config.exchanges[0].exchange, Exchange::Kraken));
-        assert!(matches!(indexer_config.exchanges[1].exchange, Exchange::Binance));
-        assert!(matches!(indexer_config.exchanges[2].exchange, Exchange::Coinbase));
+        assert!(matches!(
+            indexer_config.exchanges[0].exchange,
+            Exchange::Kraken
+        ));
+        assert!(matches!(
+            indexer_config.exchanges[1].exchange,
+            Exchange::Binance
+        ));
+        assert!(matches!(
+            indexer_config.exchanges[2].exchange,
+            Exchange::Coinbase
+        ));
 
         assert_eq!(indexer_config.exchanges[0].ws_url, "wss://ws.kraken.com");
         assert_eq!(indexer_config.exchanges[1].ws_url, "wss://ws.binance.com");
         assert_eq!(indexer_config.exchanges[2].ws_url, "wss://ws.coinbase.com");
 
-        let channels = vec!["trades", "orderbook"].into_iter().map(|s| s.to_string()).collect();
+        let channels = vec!["trades", "orderbook"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect();
         assert_eq!(indexer_config.exchanges[0].channels, channels);
         assert_eq!(indexer_config.exchanges[1].channels, channels);
         assert_eq!(indexer_config.exchanges[2].channels, channels);
 
-        let instruments = vec!["BTC-USD", "ETH-USD"].into_iter().map(|s| s.to_string()).collect();
+        let instruments = vec!["BTC-USD", "ETH-USD"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect();
         assert_eq!(indexer_config.exchanges[0].instruments, instruments);
         assert_eq!(indexer_config.exchanges[1].instruments, instruments);
         assert_eq!(indexer_config.exchanges[2].instruments, instruments);
@@ -103,8 +119,5 @@ mod tests {
         assert_eq!(indexer_config.exchanges[0].heartbeat_millis, 3000);
         assert_eq!(indexer_config.exchanges[1].heartbeat_millis, 3000);
         assert_eq!(indexer_config.exchanges[2].heartbeat_millis, 3000);
-
-
-
     }
 }

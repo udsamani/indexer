@@ -3,7 +3,6 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::{WsCallback, WsConsumer};
 
-
 #[derive(Clone)]
 pub struct WsClient {
     ws_url: String,
@@ -22,7 +21,6 @@ impl WsClient {
         }
     }
 
-
     pub fn ws_url(&self) -> &str {
         &self.ws_url
     }
@@ -34,9 +32,10 @@ impl WsClient {
     pub fn write(&self, message: Message) -> AppResult<()> {
         match self.producer.sender.try_send(message) {
             Ok(_) => Ok(()),
-            Err(e) => {
-                Err(AppError::ChannelSendError(format!("failed to send message to ws client: {}", e)))
-            }
+            Err(e) => Err(AppError::ChannelSendError(format!(
+                "failed to send message to ws client: {}",
+                e
+            ))),
         }
     }
 
