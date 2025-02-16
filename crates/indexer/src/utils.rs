@@ -1,4 +1,4 @@
-use common::{AppInternalMessage, Broadcaster, Context, SharedRwRef, Workers};
+use common::{AppInternalMessage, Broadcaster, Context, Workers};
 use exchange::{BinanceWsClient, CoinbaseWsClient, Exchange, KrakenWsClient};
 use feed_processing::FeedProcessingWorker;
 
@@ -18,9 +18,9 @@ pub fn add_binance_workers(
     let binance_broadcaster = Broadcaster::new(500);
     if let Some(binance_config) = binance_config {
         // Create Feeding Processor for Binance
-        let smoothing_config = SharedRwRef::new(SmoothingConfig::SimpleMovingAverage {
+        let smoothing_config = SmoothingConfig::SimpleMovingAverage {
             params: SmaParams { window: 20 },
-        });
+        };
         let smoothing_processor = SmoothingProcessor::new(smoothing_config);
 
         // Create Feeding Processor Worker
@@ -63,9 +63,9 @@ pub fn add_kraken_workers(
     let kraken_broadcaster = Broadcaster::new(500);
     if let Some(kraken_config) = kraken_config {
         // Create Feeding Processor for Kraken
-        let smoothing_config = SharedRwRef::new(SmoothingConfig::SimpleMovingAverage {
+        let smoothing_config = SmoothingConfig::SimpleMovingAverage {
             params: SmaParams { window: 20 },
-        });
+        };
         let smoothing_processor = SmoothingProcessor::new(smoothing_config);
 
         // Create Feeding Processor Worker
@@ -106,9 +106,9 @@ pub fn add_coinbase_workers(
     let coinbase_broadcaster = Broadcaster::new(500);
     if let Some(coinbase_config) = coinbase_config {
         // Create Feeding Processor for Coinbase
-        let smoothing_config = SharedRwRef::new(SmoothingConfig::SimpleMovingAverage {
+        let smoothing_config = SmoothingConfig::SimpleMovingAverage {
             params: SmaParams { window: 20 },
-        });
+        };
         let smoothing_processor = SmoothingProcessor::new(smoothing_config);
 
         // Create Feeding Processor Worker
