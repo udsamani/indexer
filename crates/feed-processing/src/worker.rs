@@ -1,4 +1,4 @@
-use common::{Broadcaster, Context, SharedRef, SpawnResult, Worker};
+use common::{Broadcaster, Context, SpawnResult, Worker};
 
 use crate::FeedProcessor;
 
@@ -32,7 +32,7 @@ where
     sender: Broadcaster<O>,
 
     /// The implementation that processes input data into output data
-    processor: SharedRef<A>,
+    processor: A,
 }
 
 impl<I, O, A> FeedProcessingWorker<I, O, A>
@@ -52,12 +52,12 @@ where
             context,
             receiver,
             sender,
-            processor: SharedRef::new(processor),
+            processor,
         }
     }
 
     pub fn process(&mut self, input: &I) -> Option<O> {
-        self.processor.lock().process(input)
+        self.processor.process(input)
     }
 }
 

@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
-use common::{AppInternalMessage, SharedRwRef, Ticker, TickerSymbol};
+use common::{AppInternalMessage, AppResult, SharedRwRef, Ticker, TickerSymbol};
+use exchange::Exchange;
 use feed_processing::FeedProcessor;
 use jiff::Timestamp;
 use rust_decimal::Decimal;
@@ -31,41 +32,65 @@ pub struct InnerSmoothingProcessor {
     last_emas: HashMap<TickerSymbol, Option<Decimal>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SmoothingConfig {
     #[default]
     PassThru,
-    SimpleMovingAverage {
-        params: SmaParams,
-    },
-    ExponentialMovingAverage {
-        params: EmaParams,
-    },
+    #[serde(rename = "sma")]
+    SimpleMovingAverage { params: SmaParams },
+    #[serde(rename = "ema")]
+    ExponentialMovingAverage { params: EmaParams },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl std::fmt::Display for SmoothingConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SmoothingConfig::PassThru => write!(f, "pass_thru"),
+            SmoothingConfig::SimpleMovingAverage { params } => {
+                write!(f, "sma(window={})", params.window)
+            }
+            SmoothingConfig::ExponentialMovingAverage { params } => {
+                write!(
+                    f,
+                    "ema(window={}, smoothing={})",
+                    params.window, params.smoothing
+                )
+            }
+        }
+    }
+}
+
+/// A trait for handling changes to the smoothing configuration
+pub trait SmoothingConfigChangeHandler {
+    fn handle_config_change(
+        &mut self,
+        exchange: &Exchange,
+        config: SmoothingConfig,
+    ) -> AppResult<()>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SmaParams {
     pub window: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EmaParams {
     pub window: u32,
     pub smoothing: Decimal,
-    #[serde(skip)]
-    pub smoothing_factor: Decimal,
 }
 
 #[allow(unused)]
 impl EmaParams {
     pub fn new(window: u32, smoothing: Decimal) -> Self {
-        let smoothing_factor = smoothing.checked_div(Decimal::from(window + 1)).unwrap();
-        Self {
-            window,
-            smoothing,
-            smoothing_factor,
-        }
+        Self { window, smoothing }
+    }
+
+    pub fn smoothing_factor(&self) -> Decimal {
+        self.smoothing
+            .checked_div(Decimal::from(self.window + 1))
+            .unwrap()
     }
 }
 
@@ -160,7 +185,7 @@ impl InnerSmoothingProcessor {
 
             // Clone price for calculation
             let current_price = ticker.price;
-            let ema = Self::calculate_ema(current_price, *last_ema, params.smoothing_factor);
+            let ema = Self::calculate_ema(current_price, *last_ema, params.smoothing_factor());
 
             tickers_to_send.push(Ticker {
                 symbol: ticker.symbol.clone(),
@@ -201,6 +226,48 @@ impl FeedProcessor<AppInternalMessage, AppInternalMessage> for SmoothingProcesso
     }
 }
 
+impl SmoothingConfigChangeHandler for SmoothingProcessor {
+    fn handle_config_change(
+        &mut self,
+        exchange: &Exchange,
+        config: SmoothingConfig,
+    ) -> AppResult<()> {
+        let mut inner = self.inner.write();
+        if config == inner.config {
+            return Ok(());
+        }
+        log::info!(
+            "old config: {} new config: {} for exchange: {}",
+            inner.config,
+            config,
+            exchange
+        );
+        match (&config, &inner.config) {
+            (SmoothingConfig::PassThru, SmoothingConfig::PassThru) => {}
+            (
+                SmoothingConfig::SimpleMovingAverage { params: _ },
+                SmoothingConfig::SimpleMovingAverage { params: _ },
+            ) => {
+                inner.config = config;
+                inner.last_emas.clear();
+            }
+            (
+                SmoothingConfig::ExponentialMovingAverage { params: _ },
+                SmoothingConfig::ExponentialMovingAverage { params: _ },
+            ) => {
+                inner.config = config;
+                inner.values.clear();
+            }
+            _ => {
+                inner.config = config;
+                inner.values.clear();
+                inner.last_emas.clear();
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use common::Source;
@@ -220,7 +287,7 @@ mod tests {
     #[test]
     fn test_smoothing_config_deserialization() {
         let json = serde_json::json!({
-            "type": "simple_moving_average",
+            "type": "sma",
             "params": {
                 "window": 10
             }
@@ -233,7 +300,7 @@ mod tests {
             _ => panic!("Expected SimpleMovingAverage"),
         }
         let json = serde_json::json!({
-            "type": "exponential_moving_average",
+            "type": "ema",
             "params": {
                 "window": 10,
                 "smoothing": 2.0

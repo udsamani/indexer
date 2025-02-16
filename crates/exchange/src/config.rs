@@ -14,13 +14,11 @@ use serde::{Deserialize, Serialize};
 /// # Example
 /// ```
 /// use exchange::ExchangeConfig;
-/// use exchange::Exchange;
 ///
 /// let channels = vec!["trades", "orderbook"].into_iter().map(|s| s.to_string()).collect();
 /// let instruments = vec!["BTC-USD", "ETH-USD"].into_iter().map(|s| s.to_string()).collect();
 ///
 /// let config = ExchangeConfig {
-///     exchange: Exchange::Kraken,
 ///     ws_url: "wss://ws.exchange.com/socket".to_string(),
 ///     channels,
 ///     instruments,
@@ -30,7 +28,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExchangeConfig {
     pub ws_url: String,
-    pub exchange: Exchange,
     pub channels: HashSet<String>,
     pub instruments: HashSet<String>,
     pub heartbeat_millis: u64,
@@ -44,17 +41,25 @@ pub enum Exchange {
     Binance,
 }
 
+impl std::fmt::Display for Exchange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Exchange::Kraken => write!(f, "kraken"),
+            Exchange::Coinbase => write!(f, "coinbase"),
+            Exchange::Binance => write!(f, "binance"),
+        }
+    }
+}
+
 impl ExchangeConfig {
     pub fn new(
         ws_url: String,
-        exchange: Exchange,
         channels: HashSet<String>,
         instruments: HashSet<String>,
         heartbeat_millis: u64,
     ) -> Self {
         Self {
             ws_url,
-            exchange,
             channels,
             instruments,
             heartbeat_millis,
@@ -82,7 +87,6 @@ mod tests {
     fn test_exchange_config_deserialize() {
         let config_json = serde_json::json!({
             "ws_url": "wss://ws.exchange.com/socket",
-            "exchange": "kraken",
             "channels": ["trades", "orderbook"],
             "instruments": ["BTC-USD", "ETH-USD"],
             "heartbeat_millis": 30000
@@ -98,7 +102,6 @@ mod tests {
             .map(|s| s.to_string())
             .collect::<HashSet<String>>();
         assert_eq!(config.ws_url, "wss://ws.exchange.com/socket");
-        assert!(matches!(config.exchange, Exchange::Kraken));
         assert_eq!(config.channels, channels);
         assert_eq!(config.instruments, instruments);
         assert_eq!(config.heartbeat_millis, 30000);
