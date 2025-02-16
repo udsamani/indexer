@@ -24,6 +24,8 @@ pub enum AppError {
     WebsocketError(String),
     #[error("{0}")]
     GenericError(String),
+    #[error("{0}")]
+    ReqwestError(#[from] reqwest::Error),
 }
 
 impl From<config::ConfigError> for AppError {

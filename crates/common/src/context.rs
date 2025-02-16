@@ -67,6 +67,7 @@ impl Context {
 
     pub fn log_and_exit(&self, message: &str) -> AppResult<String> {
         log::info!("exiting app = {} message = {}", self.name, message);
+        self.exit_on_failure();
         Ok(message.to_string())
     }
 

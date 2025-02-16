@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     config::{IndexerConfig, IndexerConfigChangeHandler},
+    distribution::DistributionWorker,
     processing::{WeightedAverageConfig, WeightedAverageProcessor},
     utils::{add_binance_workers, add_coinbase_workers, add_kraken_workers},
 };
@@ -48,7 +49,9 @@ impl Runner for IndexerRunner {
         // We expecte the app config to be present in etcd for initial startup.
         let app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
 
-        let mut indexer_config_change_handler = IndexerConfigChangeHandler::new();
+        let mut indexer_config_change_handler = IndexerConfigChangeHandler::new(
+            self.context.with_name("indexer-config-change-handler"),
+        );
         let broadcaster = Broadcaster::new(2000);
 
         // Add Binance Workers
@@ -105,6 +108,15 @@ impl Runner for IndexerRunner {
         workers.add_worker(Box::new(weighted_average_worker.clone()));
         indexer_config_change_handler
             .add_weighted_average_config_handler(Box::new(weighted_average_processor));
+
+        // Add Distribution Worker
+        let distribution_url = self.context.config.get_string("distribution_url")?;
+        let distribution_worker = DistributionWorker::new(
+            self.context.clone().with_name("distribution-worker"),
+            distribution_url,
+            broadcaster.clone(),
+        );
+        workers.add_worker(Box::new(distribution_worker));
 
         // Add EtcdWatcher
         let mut etcd_watcher = EtcdWatcher::<IndexerConfigChangeHandler, IndexerConfig>::new(

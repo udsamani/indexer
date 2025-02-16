@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use common::SharedRwRef;
+use common::{Context, SharedRwRef};
 use etcd::EtcdWatcherHandler;
 use exchange::{Exchange, ExchangeConfig, ExchangeConfigChangeHandler};
 use rust_decimal::Decimal;
@@ -51,16 +51,18 @@ impl IndexerConfig {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct IndexerConfigChangeHandler {
+    context: Context,
     exchange_config_callbacks: SharedRwRef<HashMap<Exchange, ExchangeConfigHandlerRef>>,
     smoothing_config_callbacks: SharedRwRef<HashMap<Exchange, SmoothingConfigChangeHandlerRef>>,
     weighted_average_config_callbacks: SharedRwRef<Vec<WeightedAverageConfigChangeHandlerRef>>,
 }
 
 impl IndexerConfigChangeHandler {
-    pub fn new() -> Self {
+    pub fn new(context: Context) -> Self {
         Self {
+            context,
             exchange_config_callbacks: SharedRwRef::new(HashMap::new()),
             smoothing_config_callbacks: SharedRwRef::new(HashMap::new()),
             weighted_average_config_callbacks: SharedRwRef::new(Vec::new()),
@@ -100,17 +102,57 @@ impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
         let mut weights = HashMap::new();
         for (exchange, feed_config) in config.config {
             if let Some(handler) = self.exchange_config_callbacks.write().get_mut(&exchange) {
-                let _ = handler.handle_config_change(feed_config.exchange_config);
+                match handler.handle_config_change(feed_config.exchange_config) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("error handling exchange config change: {}", e);
+                        let _ = self
+                            .context
+                            .log_and_exit(&format!("error handling exchange config change: {}", e))
+                            .unwrap();
+                    }
+                }
             }
             if let Some(handler) = self.smoothing_config_callbacks.write().get_mut(&exchange) {
-                let _ = handler.handle_config_change(&exchange, feed_config.smoothing_config);
+                match handler.handle_config_change(&exchange, feed_config.smoothing_config) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("error handling smoothing config change: {}", e);
+                        let _ = self
+                            .context
+                            .log_and_exit(&format!("error handling smoothing config change: {}", e))
+                            .unwrap();
+                    }
+                }
             }
             weights.insert(exchange, feed_config.weight);
         }
 
-        let weighted_average_config = WeightedAverageConfig::new(weights).unwrap();
+        let weighted_average_config = WeightedAverageConfig::new(weights);
+        if let Err(e) = &weighted_average_config {
+            log::error!("error creating weighted average config: {}", e);
+            let _ = self
+                .context
+                .log_and_exit(&format!("error creating weighted average config: {}", e))
+                .unwrap();
+            return;
+        }
+
+        let weighted_average_config = weighted_average_config.unwrap();
         for handler in self.weighted_average_config_callbacks.write().iter_mut() {
-            let _ = handler.handle_config_change(weighted_average_config.clone());
+            match handler.handle_config_change(weighted_average_config.clone()) {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("error handling weighted average config change: {}", e);
+                    let _ = self
+                        .context
+                        .log_and_exit(&format!(
+                            "error handling weighted average config change: {}",
+                            e
+                        ))
+                        .unwrap();
+                }
+            }
         }
     }
 }

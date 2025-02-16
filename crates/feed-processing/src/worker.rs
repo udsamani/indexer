@@ -23,7 +23,7 @@ where
     A: FeedProcessor<I, O>,
 {
     /// Application context containing configuration and runtime information
-    context: Context,
+    _context: Context,
 
     /// Multi-producer, single-consumer channel that receives input data
     receiver: Broadcaster<I>,
@@ -49,7 +49,7 @@ where
         processor: A,
     ) -> Self {
         Self {
-            context,
+            _context: context,
             receiver,
             sender,
             processor,
@@ -69,18 +69,21 @@ where
 {
     fn spawn(&mut self) -> SpawnResult {
         let mut worker = self.clone();
+        let mut app = worker._context.app.subscribe();
 
         tokio::spawn(async move {
             let mut receiver = worker.receiver.receiver();
 
             loop {
                 tokio::select! {
+                    _ = app.recv() => {
+                        log::info!("{} received exit message", worker._context.name);
+                        return Ok(format!("{} received exit message", worker._context.name));
+                    }
                     input = receiver.recv() => {
                         let input = input.unwrap();
                         let output = worker.process(&input);
                         if let Some(output) = output {
-                            // TODO: determine if this error should cause the application to exit
-                            log::info!("output: {:?}, context: {:?}", output, worker.context.name);
                             if let Err(e) = worker.sender.try_send(output) {
                                 log::error!("error sending output to broadcaster: {}", e);
                             }

@@ -61,6 +61,7 @@ where
             match stream_result {
                 Ok(_) => {
                     log::warn!("websocket {} disconnected", self.context.name);
+                    return Ok(format!("websocket {} disconnected", self.context.name));
                 }
                 Err(AppError::Exit) => {
                     return Err(AppError::Exit);

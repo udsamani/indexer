@@ -98,7 +98,7 @@ impl Worker for Workers {
                             log::error!("{} worker failed with error: {:?}", context.name, err);
                         }
                         Ok(name) => {
-                            log::info!("worker {} exited", name);
+                            log::info!("{} exited", name);
                         }
                     }
                 } else {

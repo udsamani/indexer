@@ -114,7 +114,7 @@ impl InnerWeightedAverageProcessor {
                 symbol: symbol.clone(),
             }) {
                 let age = timestamp.duration_since(price.timestamp);
-                if age.as_millis() < 10000_i128 {
+                if age.as_millis() < 25000_i128 {
                     weighted_sum += price.price * weight;
                     total_weight += weight;
                 } else {
@@ -232,7 +232,6 @@ mod tests {
                 (Exchange::Kraken, dec!(30)),
                 (Exchange::Coinbase, dec!(30)),
             ]),
-            stale_threshold_ms: 5000, // 5 seconds
         };
         WeightedAverageProcessor::new(config).unwrap()
     }
@@ -374,7 +373,6 @@ mod tests {
                 (Exchange::Kraken, dec!(40)), // Total 110%
                 (Exchange::Coinbase, dec!(30)),
             ]),
-            stale_threshold_ms: 5000,
         };
 
         assert!(WeightedAverageProcessor::new(config).is_err());

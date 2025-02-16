@@ -62,12 +62,17 @@ where
             let mut heartbeat_interval =
                 tokio::time::interval(Duration::from_millis(heartbeat_duration));
             let mut num_messages_since_last_heartbeat = 0;
+            let mut app = watcher.context.app.subscribe();
 
             log::info!("starting {} watcher for key: {}", context.name, key);
             let (_watcher, mut stream) = client.watch(&key).await?;
 
             loop {
                 tokio::select! {
+                    _ = app.recv() => {
+                        log::info!("{} received exit message", context.name);
+                        return Ok(format!("{} received exit message", context.name));
+                    }
                     _ = heartbeat_interval.tick() => {
                         log::info!("{} consumed {} messages since last heartbeat for key: {}", context.name, num_messages_since_last_heartbeat, key);
                         if num_messages_since_last_heartbeat > 0 {
