@@ -18,7 +18,8 @@ etcdctl put /aionex/indexer/config '{
               "window": 100,
               "smoothing": 2.0
           }
-      }
+      },
+      "weight": 30.0
   },
   "binance": {
       "exchange_config": {
@@ -32,7 +33,8 @@ etcdctl put /aionex/indexer/config '{
           "params": {
               "window": 100
           }
-      }
+      },
+      "weight": 40.0
   },
   "coinbase": {
       "exchange_config": {
@@ -46,7 +48,8 @@ etcdctl put /aionex/indexer/config '{
           "params": {
               "window": 20
           }
-      }
+      },
+      "weight": 30.0
   }
 }'
 
@@ -65,7 +68,8 @@ etcdctl put /aionex/indexer/config '{
               "window": 100,
               "smoothing": 2.0
           }
-      }
+      },
+      "weight": 30.0
   },
   "binance": {
       "exchange_config": {
@@ -79,7 +83,8 @@ etcdctl put /aionex/indexer/config '{
           "params": {
               "window": 100
           }
-      }
+      },
+      "weight": 40.0
   },
   "coinbase": {
       "exchange_config": {
@@ -90,6 +95,7 @@ etcdctl put /aionex/indexer/config '{
       },
       "smoothing_config": {
           "type": "pass_thru"
-      }
+      },
+      "weight": 30.0
   }
 }'

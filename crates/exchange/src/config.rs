@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use common::AppResult;
+use common::{AppResult, Source};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for establishing and maintaining a WebSocket connection to a cryptocurrency exchange.
@@ -39,6 +39,17 @@ pub enum Exchange {
     Kraken,
     Coinbase,
     Binance,
+}
+
+impl Exchange {
+    pub fn from_source(source: &Source) -> Option<Self> {
+        match source {
+            Source::Binance => Some(Self::Binance),
+            Source::Kraken => Some(Self::Kraken),
+            Source::Coinbase => Some(Self::Coinbase),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for Exchange {

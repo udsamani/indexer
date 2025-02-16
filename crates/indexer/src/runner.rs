@@ -1,10 +1,15 @@
+use std::collections::HashMap;
+
 use crate::{
     config::{IndexerConfig, IndexerConfigChangeHandler},
+    processing::{WeightedAverageConfig, WeightedAverageProcessor},
     utils::{add_binance_workers, add_coinbase_workers, add_kraken_workers},
 };
 use common::{static_config, AppResult, Broadcaster, Context, Runner, Workers};
 use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
+use exchange::Exchange;
+use feed_processing::FeedProcessingWorker;
 
 pub struct IndexerRunner {
     context: Context,
@@ -42,7 +47,6 @@ impl Runner for IndexerRunner {
         // Get App Config Intiailly.
         // We expecte the app config to be present in etcd for initial startup.
         let app_config = self.get_app_config(&config_key, &mut etcd_client).await?;
-        log::info!("initial app config: {:?}", app_config);
 
         let mut indexer_config_change_handler = IndexerConfigChangeHandler::new();
         let broadcaster = Broadcaster::new(2000);
@@ -75,15 +79,32 @@ impl Runner for IndexerRunner {
         );
 
         // Add Weighted Average Processor
-        // let weighted_average_broadcaster = Broadcaster::new(2000);
-        // let weighted_average_processor = WeightedAverageProcessor::new(vec![0.5, 0.5]);
-        // let weighted_average_worker = FeedProcessingWorker::new(
-        //     self.context.clone().with_name("weighted-average-processor"),
-        //     broadcaster.clone(),
-        //     weighted_average_broadcaster.clone(),
-        //     weighted_average_processor,
-        // );
-        // workers.add_worker(Box::new(weighted_average_worker));
+        let mut weights = HashMap::new();
+        weights.insert(
+            Exchange::Binance,
+            *app_config.get_weight(Exchange::Binance).unwrap(),
+        );
+        weights.insert(
+            Exchange::Kraken,
+            *app_config.get_weight(Exchange::Kraken).unwrap(),
+        );
+        weights.insert(
+            Exchange::Coinbase,
+            *app_config.get_weight(Exchange::Coinbase).unwrap(),
+        );
+
+        let weighted_average_config = WeightedAverageConfig::new(weights)?;
+        let weighted_average_processor = WeightedAverageProcessor::new(weighted_average_config)?;
+        let weighted_average_broadcaster = Broadcaster::new(2000);
+        let weighted_average_worker = FeedProcessingWorker::new(
+            self.context.clone().with_name("weighted-average-processor"),
+            broadcaster.clone(),
+            weighted_average_broadcaster.clone(),
+            weighted_average_processor.clone(),
+        );
+        workers.add_worker(Box::new(weighted_average_worker.clone()));
+        indexer_config_change_handler
+            .add_weighted_average_config_handler(Box::new(weighted_average_processor));
 
         // Add EtcdWatcher
         let mut etcd_watcher = EtcdWatcher::<IndexerConfigChangeHandler, IndexerConfig>::new(

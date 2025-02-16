@@ -1,16 +1,21 @@
 use std::collections::{HashMap, HashSet};
 
 use common::{AppError, AppInternalMessage, AppResult, SharedRwRef, Source, Ticker, TickerSymbol};
+use exchange::Exchange;
 use feed_processing::FeedProcessor;
 use jiff::Timestamp;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-#[allow(unused)]
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct WeightedAverageConfig {
-    pub weights: HashMap<Source, Decimal>,
-    pub stale_threshold_ms: u64,
+    pub weights: HashMap<Exchange, Decimal>,
+}
+
+impl std::fmt::Display for WeightedAverageConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "wac(weights: {:?})", self.weights)
+    }
 }
 
 #[allow(unused)]
@@ -37,6 +42,16 @@ impl WeightedAverageConfig {
         }
         Ok(true)
     }
+
+    pub fn new(weights: HashMap<Exchange, Decimal>) -> AppResult<Self> {
+        let config = Self { weights };
+        config.validate()?;
+        Ok(config)
+    }
+}
+
+pub trait WeightedAverageConfigChangeHandler {
+    fn handle_config_change(&mut self, config: WeightedAverageConfig) -> AppResult<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -47,11 +62,10 @@ pub struct PriceEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PriceKey {
-    pub source: Source,
+    pub exchange: Exchange,
     pub symbol: TickerSymbol,
 }
 
-#[allow(unused)]
 #[derive(Clone)]
 pub struct WeightedAverageProcessor {
     inner: SharedRwRef<InnerWeightedAverageProcessor>,
@@ -94,20 +108,20 @@ impl InnerWeightedAverageProcessor {
         let mut weighted_sum = Decimal::ZERO;
         let mut total_weight = Decimal::ZERO;
 
-        for (source, weight) in &self.config.weights {
+        for (exchange, weight) in &self.config.weights {
             if let Some(price) = self.latest_prices.get(&PriceKey {
-                source: source.clone(),
+                exchange: exchange.clone(),
                 symbol: symbol.clone(),
             }) {
                 let age = timestamp.duration_since(price.timestamp);
-                if age.as_millis() < self.config.stale_threshold_ms as i128 {
+                if age.as_millis() < 10000_i128 {
                     weighted_sum += price.price * weight;
                     total_weight += weight;
                 } else {
                     log::warn!(
                         "Price for {} from {} is too old: {}ms",
                         symbol,
-                        source,
+                        exchange,
                         age.as_millis()
                     );
                 }
@@ -131,21 +145,23 @@ impl InnerWeightedAverageProcessor {
 
         // Update latest prices
         for ticker in tickers {
-            self.latest_prices.insert(
-                PriceKey {
-                    source: ticker.source.clone(),
-                    symbol: ticker.symbol.clone(),
-                },
-                PriceEntry {
-                    price: ticker.price,
-                    timestamp: ticker.timestamp,
-                },
-            );
+            if let Some(exchange) = Exchange::from_source(&ticker.source) {
+                self.latest_prices.insert(
+                    PriceKey {
+                        exchange,
+                        symbol: ticker.symbol.clone(),
+                    },
+                    PriceEntry {
+                        price: ticker.price,
+                        timestamp: ticker.timestamp,
+                    },
+                );
 
-            // Checking if the symbol is already in the set
-            // to avoid cloning the symbol unnecessarily
-            if !symbols.contains(&ticker.symbol) {
-                symbols.insert(ticker.symbol.clone());
+                // Checking if the symbol is already in the set
+                // to avoid cloning the symbol unnecessarily
+                if !symbols.contains(&ticker.symbol) {
+                    symbols.insert(ticker.symbol.clone());
+                }
             }
         }
 
@@ -175,6 +191,19 @@ impl FeedProcessor<AppInternalMessage, AppInternalMessage> for WeightedAveragePr
     }
 }
 
+impl WeightedAverageConfigChangeHandler for WeightedAverageProcessor {
+    fn handle_config_change(&mut self, config: WeightedAverageConfig) -> AppResult<()> {
+        let mut inner = self.inner.write();
+        if config == inner.config {
+            return Ok(());
+        }
+        config.validate()?;
+        log::info!("old config: {} new config: {}", inner.config, config);
+        inner.config = config;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -199,9 +228,9 @@ mod tests {
     fn setup_processor() -> WeightedAverageProcessor {
         let config = WeightedAverageConfig {
             weights: HashMap::from([
-                (Source::Binance, dec!(40)),
-                (Source::Kraken, dec!(30)),
-                (Source::Coinbase, dec!(30)),
+                (Exchange::Binance, dec!(40)),
+                (Exchange::Kraken, dec!(30)),
+                (Exchange::Coinbase, dec!(30)),
             ]),
             stale_threshold_ms: 5000, // 5 seconds
         };
@@ -341,9 +370,9 @@ mod tests {
     fn test_invalid_config() {
         let config = WeightedAverageConfig {
             weights: HashMap::from([
-                (Source::Binance, dec!(40)),
-                (Source::Kraken, dec!(40)), // Total 110%
-                (Source::Coinbase, dec!(30)),
+                (Exchange::Binance, dec!(40)),
+                (Exchange::Kraken, dec!(40)), // Total 110%
+                (Exchange::Coinbase, dec!(30)),
             ]),
             stale_threshold_ms: 5000,
         };

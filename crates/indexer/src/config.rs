@@ -3,12 +3,18 @@ use std::collections::HashMap;
 use common::SharedRwRef;
 use etcd::EtcdWatcherHandler;
 use exchange::{Exchange, ExchangeConfig, ExchangeConfigChangeHandler};
+use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use crate::processing::{SmoothingConfig, SmoothingConfigChangeHandler};
+use crate::processing::{
+    SmoothingConfig, SmoothingConfigChangeHandler, WeightedAverageConfig,
+    WeightedAverageConfigChangeHandler,
+};
 
 pub type ExchangeConfigHandlerRef = Box<dyn ExchangeConfigChangeHandler + Send + Sync>;
 pub type SmoothingConfigChangeHandlerRef = Box<dyn SmoothingConfigChangeHandler + Send + Sync>;
+pub type WeightedAverageConfigChangeHandlerRef =
+    Box<dyn WeightedAverageConfigChangeHandler + Send + Sync>;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct IndexerConfig {
@@ -21,6 +27,7 @@ pub struct IndexerConfig {
 pub struct FeedConfig {
     exchange_config: ExchangeConfig,
     smoothing_config: SmoothingConfig,
+    weight: Decimal,
 }
 
 #[allow(unused)]
@@ -36,12 +43,19 @@ impl IndexerConfig {
             .get(&exchange)
             .map(|feed_config| &feed_config.smoothing_config)
     }
+
+    pub fn get_weight(&self, exchange: Exchange) -> Option<&Decimal> {
+        self.config
+            .get(&exchange)
+            .map(|feed_config| &feed_config.weight)
+    }
 }
 
 #[derive(Clone, Default)]
 pub struct IndexerConfigChangeHandler {
     exchange_config_callbacks: SharedRwRef<HashMap<Exchange, ExchangeConfigHandlerRef>>,
     smoothing_config_callbacks: SharedRwRef<HashMap<Exchange, SmoothingConfigChangeHandlerRef>>,
+    weighted_average_config_callbacks: SharedRwRef<Vec<WeightedAverageConfigChangeHandlerRef>>,
 }
 
 impl IndexerConfigChangeHandler {
@@ -49,6 +63,7 @@ impl IndexerConfigChangeHandler {
         Self {
             exchange_config_callbacks: SharedRwRef::new(HashMap::new()),
             smoothing_config_callbacks: SharedRwRef::new(HashMap::new()),
+            weighted_average_config_callbacks: SharedRwRef::new(Vec::new()),
         }
     }
 
@@ -71,10 +86,18 @@ impl IndexerConfigChangeHandler {
             .write()
             .insert(exchange, handler);
     }
+
+    pub fn add_weighted_average_config_handler(
+        &mut self,
+        handler: WeightedAverageConfigChangeHandlerRef,
+    ) {
+        self.weighted_average_config_callbacks.write().push(handler);
+    }
 }
 
 impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
     fn handle_config_change(&self, config: IndexerConfig) {
+        let mut weights = HashMap::new();
         for (exchange, feed_config) in config.config {
             if let Some(handler) = self.exchange_config_callbacks.write().get_mut(&exchange) {
                 let _ = handler.handle_config_change(feed_config.exchange_config);
@@ -82,6 +105,12 @@ impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
             if let Some(handler) = self.smoothing_config_callbacks.write().get_mut(&exchange) {
                 let _ = handler.handle_config_change(&exchange, feed_config.smoothing_config);
             }
+            weights.insert(exchange, feed_config.weight);
+        }
+
+        let weighted_average_config = WeightedAverageConfig::new(weights).unwrap();
+        for handler in self.weighted_average_config_callbacks.write().iter_mut() {
+            let _ = handler.handle_config_change(weighted_average_config.clone());
         }
     }
 }
@@ -111,7 +140,8 @@ mod tests {
                         "window": 100,
                         "smoothing": 2.0
                     }
-                }
+                },
+                "weight": 30.0
             },
             "binance": {
                 "exchange_config": {
@@ -125,7 +155,8 @@ mod tests {
                     "params": {
                         "window": 100
                     }
-                }
+                },
+                "weight": 40.0
             },
             "coinbase": {
                 "exchange_config": {
@@ -139,7 +170,8 @@ mod tests {
                     "params": {
                         "window": 100
                     }
-                }
+                },
+                "weight": 30.0
             }
         });
 
@@ -174,6 +206,11 @@ mod tests {
             _ => panic!("Expected ExponentialMovingAverage"),
         }
 
+        assert_eq!(
+            indexer_config.get_weight(Exchange::Kraken),
+            Some(&dec!(30.0))
+        );
+
         let instruments = vec!["ETHUSDT", "BTCUSDT"]
             .into_iter()
             .map(|s| s.to_string())
@@ -197,6 +234,11 @@ mod tests {
             }
             _ => panic!("Expected SimpleMovingAverage"),
         }
+
+        assert_eq!(
+            indexer_config.get_weight(Exchange::Binance),
+            Some(&dec!(40.0))
+        );
 
         let instruments = vec!["BTC-USD", "ETH-USD"]
             .into_iter()
@@ -227,5 +269,10 @@ mod tests {
             }
             _ => panic!("Expected SimpleMovingAverage"),
         }
+
+        assert_eq!(
+            indexer_config.get_weight(Exchange::Coinbase),
+            Some(&dec!(30.0))
+        );
     }
 }
