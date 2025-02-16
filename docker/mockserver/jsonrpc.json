@@ -1,0 +1,76 @@
+[
+    {
+        "httpRequest": {
+            "method": "POST",
+            "path": "/rpc",
+            "headers": {
+                "Content-Type": [
+                    "application/json"
+                ]
+            },
+            "body": {
+                "type": "JSON",
+                "matchType": "STRICT",
+                "json": {
+                    "jsonrpc": "2.0",
+                    "method": "submit_price",
+                    "params": {
+                        "symbol": "${json-unit.any-string}",
+                        "price": "${json-unit.any-string}",
+                        "timestamp": "${json-unit.any-string}",
+                        "source": "${json-unit.any-string}"
+                    },
+                    "id": "${json-unit.any-number}"
+                }
+            }
+        },
+        "httpResponse": {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": [
+                    "application/json"
+                ]
+            },
+            "body": {
+                "type": "JSON",
+                "json": {
+                    "jsonrpc": "2.0",
+                    "result": {
+                        "status": "ok",
+                        "timestamp": "some-timestamp"
+                    },
+                    "id": "${request.body.id}"
+                }
+            }
+        }
+    },
+    {
+        "httpRequest": {
+            "method": "POST",
+            "path": "/http",
+            "headers": {
+                "Content-Type": [
+                    "application/json"
+                ]
+            }
+        },
+        "httpResponse": {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": [
+                    "application/json"
+                ]
+            },
+            "body": {
+                "type": "JSON",
+                "json": {
+                    "result": {
+                        "status": "ok",
+                        "timestamp": "some-timestamp"
+                    },
+                    "id": "${request.body.id}"
+                }
+            }
+        }
+    }
+]

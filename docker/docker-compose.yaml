@@ -37,3 +37,14 @@ services:
     command: ["postgres", "-c", "fsync=off", "-c", "full_page_writes=off"]
     env_file:
       - .dev.env
+  
+  
+  jsonrpc-mock:
+    image: "${REGISTRY_URL:-}mockserver/mockserver"
+    ports:
+      - "1080:1080"
+    environment:
+      MOCKSERVER_LOG_LEVEL: DEBUG
+      MOCKSERVER_INITIALIZATION_JSON_PATH: /config/jsonrpc.json
+    volumes:
+      - ./mockserver:/config
