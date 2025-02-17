@@ -1,8 +1,25 @@
 use std::time::Duration;
 
 use common::{AppError, AppInternalMessage, AppResult, Broadcaster, Context, SpawnResult, Worker};
+use lazy_static::lazy_static;
+use prometheus as prom;
 use tokio::sync::broadcast::error::RecvError;
 use tokio_postgres::Client;
+
+lazy_static! {
+    pub static ref DBWRITER_MESSAGES_WRITTEN: prom::CounterVec = prom::register_counter_vec!(
+        "dbwriter_messages_written",
+        "DB writer messages written",
+        &[]
+    )
+    .unwrap();
+    pub static ref DBWRITER_MESSAGES_DROPPED: prom::CounterVec = prom::register_counter_vec!(
+        "dbwriter_messages_dropped",
+        "DB writer messages dropped",
+        &[]
+    )
+    .unwrap();
+}
 
 #[derive(Clone)]
 pub struct DbWriter {
@@ -61,7 +78,8 @@ impl Worker for DbWriter {
                                 dbwriter.messages.push(message);
                             },
                             Err(RecvError::Lagged(lag)) => {
-                                log::warn!("broadcaster receiver lagged by {}", lag);
+                                DBWRITER_MESSAGES_DROPPED.with_label_values(&[]).inc_by(lag as f64);
+                                log::warn!("{} broadcaster receiver lagged by {}", dbwriter.context.name, lag);
                                 continue;
                             },
                             Err(e) => {
@@ -70,8 +88,10 @@ impl Worker for DbWriter {
                         }
                     }
                     _ = insertion_interval.tick() => {
+                        let num_messages = dbwriter.messages.len();
                         if !dbwriter.messages.is_empty() {
                             insert_messages(dbwriter.messages.drain(..).collect(), &mut client).await?;
+                            DBWRITER_MESSAGES_WRITTEN.with_label_values(&[]).inc_by(num_messages as f64);
                         }
                     }
                 }

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use warp::Filter;
+
 use crate::{
     config::{IndexerConfig, IndexerConfigChangeHandler},
     dbwriter::DbWriter,
@@ -12,6 +14,7 @@ use config::Config;
 use etcd::{EtcdClient, EtcdWatcher};
 use exchange::Exchange;
 use feed_processing::FeedProcessingWorker;
+use prometheus::Encoder;
 
 pub struct IndexerRunner {
     context: Context,
@@ -42,6 +45,7 @@ impl Default for IndexerRunner {
 impl Runner for IndexerRunner {
     async fn run(&mut self) -> AppResult<String> {
         let config_key = self.context.config.get_string("app_config_key")?;
+        start_metrics_server(self.context.clone())?;
 
         let mut workers = Workers::new(self.context.clone(), 0);
         let mut etcd_client = EtcdClient::from_context(&self.context).unwrap();
@@ -139,4 +143,25 @@ impl Runner for IndexerRunner {
     fn static_config(&self) -> &Config {
         &self.context.config
     }
+}
+
+pub fn start_metrics_server(context: Context) -> AppResult<String> {
+    let metrics = warp::path("metrics").map(|| {
+        let encoder = prometheus::TextEncoder::new();
+        let mut buffer = vec![];
+        encoder.encode(&prometheus::gather(), &mut buffer).unwrap();
+        String::from_utf8(buffer).unwrap()
+    });
+
+    let mut app = context.app.subscribe();
+    let (_, server) =
+        warp::serve(metrics).bind_with_graceful_shutdown(([0, 0, 0, 0], 7070), async move {
+            app.recv().await.ok();
+            log::info!("metrics server shutdown");
+        });
+
+    tokio::spawn(async move {
+        server.await;
+    });
+    Ok("metrics server started".to_string())
 }

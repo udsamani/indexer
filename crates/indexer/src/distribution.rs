@@ -1,8 +1,25 @@
 use std::time::Duration;
 
 use common::{AppError, AppInternalMessage, AppResult, Broadcaster, Context, Ticker, Worker};
+use lazy_static::lazy_static;
+use prometheus as prom;
 use reqwest::Client;
 use tokio::sync::broadcast::error::RecvError;
+
+lazy_static! {
+    pub static ref DISTRIBUTION_MESSAGES_SENT: prom::CounterVec = prom::register_counter_vec!(
+        "distribution_messages_sent",
+        "Distribution messages sent",
+        &[]
+    )
+    .unwrap();
+    pub static ref DISTRIBUTION_MESSAGES_DROPPED: prom::CounterVec = prom::register_counter_vec!(
+        "distribution_messages_dropped",
+        "Distribution messages dropped",
+        &[]
+    )
+    .unwrap();
+}
 
 #[derive(Clone)]
 pub struct DistributionWorker {
@@ -74,11 +91,15 @@ impl Worker for DistributionWorker {
                     }
                     _ = distribution_interval.tick() => {
                         let messages = worker.messages.drain(..).collect::<Vec<_>>();
-                        log::info!("{} sending {} messages", context.name, messages.len());
-                        match worker.send_internal_message(messages).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                log::error!("error sending internal message: {}", e);
+                        let num_messages = messages.len();
+                        if num_messages > 0 {
+                            log::info!("{} sending {} messages", context.name, num_messages);
+                            DISTRIBUTION_MESSAGES_SENT.with_label_values(&[]).inc_by(num_messages as f64);
+                            match worker.send_internal_message(messages).await {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    log::error!("error sending internal message: {}", e);
+                                }
                             }
                         }
                     }
@@ -88,6 +109,7 @@ impl Worker for DistributionWorker {
                                 worker.messages.push(message);
                             },
                             Err(RecvError::Lagged(u)) => {
+                                DISTRIBUTION_MESSAGES_DROPPED.with_label_values(&[]).inc_by(u as f64);
                                 log::warn!("{} lagged listening to internal messages : {}", context.name, u);
                             }
                             Err(e) => {

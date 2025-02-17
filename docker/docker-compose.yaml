@@ -12,6 +12,8 @@ services:
     image: "${REGISTRY_URL:-}grafana/grafana"
     ports:
       - "3000:3000"
+    volumes:
+      - ${PWD}/docker/grafana/provisioning:/etc/grafana/provisioning
 
   etcd:
     image: 'bitnami/etcd:latest'
@@ -37,6 +39,15 @@ services:
     command: ["postgres", "-c", "fsync=off", "-c", "full_page_writes=off"]
     env_file:
       - .dev.env
+
+  prometheus:
+    image: "${REGISTRY_URL:-}prom/prometheus:v3.0.0"
+    restart: unless-stopped
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ${PWD}/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
   
   
   jsonrpc-mock:

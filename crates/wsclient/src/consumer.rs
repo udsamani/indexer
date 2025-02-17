@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::{io, sync::mpsc::Receiver};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
-use crate::WsCallback;
+use crate::{WsCallback, WS_CONSUMER_MESSAGES};
 
 #[derive(Clone)]
 pub struct WsConsumer<C>
@@ -132,6 +132,9 @@ where
                 _ = heartbeat.tick() => {
                     let _ = self.callback.on_heartbeat();
                     log::info!("{} received {} messages since last heartbeat", self.context.name, num_messages_since_last_heartbeat);
+                    WS_CONSUMER_MESSAGES
+                        .with_label_values(&[&self.context.name])
+                        .inc_by(num_messages_since_last_heartbeat as f64);
                     num_messages_since_last_heartbeat = 0;
                 }
             }

@@ -11,3 +11,5 @@ log = { workspace = true }
 async-trait = { workspace = true }
 jiff = { workspace = true }
 futures-util = { workspace = true }
+prometheus = { workspace = true }
+lazy_static = { workspace = true }
