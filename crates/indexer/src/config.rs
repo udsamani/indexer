@@ -101,7 +101,7 @@ impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
     fn handle_config_change(&self, config: IndexerConfig) {
         let mut weights = HashMap::new();
         for (exchange, feed_config) in &config.config {
-            if let Some(handler) = self.exchange_config_callbacks.write().get_mut(&exchange) {
+            if let Some(handler) = self.exchange_config_callbacks.write().get_mut(exchange) {
                 match handler.handle_config_change(feed_config.exchange_config.clone()) {
                     Ok(_) => {}
                     Err(e) => {
@@ -113,8 +113,8 @@ impl EtcdWatcherHandler<IndexerConfig> for IndexerConfigChangeHandler {
                     }
                 }
             }
-            if let Some(handler) = self.smoothing_config_callbacks.write().get_mut(&exchange) {
-                match handler.handle_config_change(&exchange, feed_config.smoothing_config.clone()) {
+            if let Some(handler) = self.smoothing_config_callbacks.write().get_mut(exchange) {
+                match handler.handle_config_change(exchange, feed_config.smoothing_config.clone()) {
                     Ok(_) => {}
                     Err(e) => {
                         log::error!("error handling smoothing config change: {}", e);

@@ -122,7 +122,7 @@ impl Runner for IndexerRunner {
         let distribution_worker = DistributionWorker::new(
             self.context.clone().with_name("distribution-worker"),
             distribution_url,
-            broadcaster.clone(),
+            weighted_average_broadcaster.clone(),
         );
         workers.add_worker(Box::new(distribution_worker));
 
