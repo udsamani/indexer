@@ -26,6 +26,8 @@ pub enum AppError {
     GenericError(String),
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
+    #[error("{0}")]
+    PostgresError(#[from] tokio_postgres::Error),
 }
 
 impl From<config::ConfigError> for AppError {

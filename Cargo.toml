@@ -20,6 +20,7 @@ futures-util = { version = "0.3.31" }
 futures = { version = "0.3.31" }
 etcd-client = { version = "0.14.1" }
 reqwest = { version = "0.12.12", features = ["json"] }
+tokio-postgres = { version = "0.7.13" }
 
 ## Miscellaneous
 jiff = { version = "0.2.0" }

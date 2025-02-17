@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     config::{IndexerConfig, IndexerConfigChangeHandler},
+    dbwriter::DbWriter,
     distribution::DistributionWorker,
     processing::{WeightedAverageConfig, WeightedAverageProcessor},
     utils::{add_binance_workers, add_coinbase_workers, add_kraken_workers},
@@ -53,6 +54,9 @@ impl Runner for IndexerRunner {
             self.context.with_name("indexer-config-change-handler"),
         );
         let broadcaster = Broadcaster::new(2000);
+
+        let dbwriter = DbWriter::new(self.context.clone(), broadcaster.clone())?;
+        workers.add_worker(Box::new(dbwriter));
 
         // Add Binance Workers
         add_binance_workers(
