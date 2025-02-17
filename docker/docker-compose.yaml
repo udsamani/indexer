@@ -1,12 +1,5 @@
 services:
 
-  redis:
-    image: "${REGISTRY_URL:-}redis:7-alpine"
-    volumes:
-      - ${PWD}/.tmp/redis:/data
-    ports:
-      - 6379:6379
-
   grafana:
     container_name: grafana
     image: "${REGISTRY_URL:-}grafana/grafana"
@@ -27,7 +20,7 @@ services:
   database:
     image: "${REGISTRY_URL:-}postgres:15-alpine"
     ports:
-      - 6432:5432
+      - 5432:5432
     volumes:
       - ${PWD}/.tmp/pgdata:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d

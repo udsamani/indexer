@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::{io, sync::mpsc::Receiver};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
-use crate::{WsCallback, WS_CONSUMER_MESSAGES};
+use crate::{WsCallback, WS_CONSUMER_MESSAGES, WS_MESSAGES_NOT_RECEIVED_CONSECUTIVELY};
 
 #[derive(Clone)]
 pub struct WsConsumer<C>
@@ -87,6 +87,7 @@ where
         self.on_connect().await?;
         let mut app = self.context.app.subscribe();
         let mut num_messages_since_last_heartbeat = 0;
+        let mut num_consecutive_heartbeats_no_messages_received = 0;
         let mut heartbeat = tokio::time::interval(Duration::from_millis(self.heartbeat_millis));
 
         loop {
@@ -131,11 +132,22 @@ where
                 }
                 _ = heartbeat.tick() => {
                     let _ = self.callback.on_heartbeat();
-                    log::info!("{} received {} messages since last heartbeat", self.context.name, num_messages_since_last_heartbeat);
-                    WS_CONSUMER_MESSAGES
-                        .with_label_values(&[&self.context.name])
-                        .inc_by(num_messages_since_last_heartbeat as f64);
-                    num_messages_since_last_heartbeat = 0;
+                    if num_messages_since_last_heartbeat > 0 {
+                        log::info!("{} received {} messages since last heartbeat", self.context.name, num_messages_since_last_heartbeat);
+                        WS_CONSUMER_MESSAGES
+                            .with_label_values(&[&self.context.name])
+                            .inc_by(num_messages_since_last_heartbeat as f64);
+                        num_messages_since_last_heartbeat = 0;
+                        num_consecutive_heartbeats_no_messages_received = 0;
+                    } else {
+                        num_consecutive_heartbeats_no_messages_received += 1;
+                        if num_consecutive_heartbeats_no_messages_received > 5 {
+                            log::warn!("{} has not received any messages for {} heartbeats", self.context.name, num_consecutive_heartbeats_no_messages_received);
+                            WS_MESSAGES_NOT_RECEIVED_CONSECUTIVELY
+                                .with_label_values(&[&self.context.name])
+                                .inc();
+                        }
+                    }
                 }
             }
         }

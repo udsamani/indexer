@@ -19,6 +19,8 @@ lazy_static! {
         &[]
     )
     .unwrap();
+    pub static ref DISTRIBUTION_FAILURES: prom::CounterVec =
+        prom::register_counter_vec!("distribution_failures", "Distribution failures", &[]).unwrap();
 }
 
 #[derive(Clone)]
@@ -99,6 +101,7 @@ impl Worker for DistributionWorker {
                                 Ok(_) => {}
                                 Err(e) => {
                                     log::error!("error sending internal message: {}", e);
+                                    DISTRIBUTION_FAILURES.with_label_values(&[]).inc();
                                 }
                             }
                         }
