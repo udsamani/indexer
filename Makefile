@@ -46,3 +46,7 @@ services-stop:				## stop docker services
 services-clean:				## remove docker containers
 	@docker compose -f ./docker/docker-compose.yaml stop
 	@docker compose -f ./docker/docker-compose.yaml rm -f
+
+.PHONY: etcd-init
+etcd-init:				## initialize etcd
+	./docker/etcd-init/init.sh

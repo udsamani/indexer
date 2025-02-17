@@ -101,23 +101,28 @@ impl InnerWeightedAverageProcessor {
     }
 
     fn calculate_weighted_average(
-        &self,
+        &mut self,
         symbol: &TickerSymbol,
         timestamp: Timestamp,
     ) -> Option<Decimal> {
         let mut weighted_sum = Decimal::ZERO;
         let mut total_weight = Decimal::ZERO;
 
+        let mut stale_keys = Vec::new();
         for (exchange, weight) in &self.config.weights {
             if let Some(price) = self.latest_prices.get(&PriceKey {
                 exchange: exchange.clone(),
                 symbol: symbol.clone(),
             }) {
                 let age = timestamp.duration_since(price.timestamp);
-                if age.as_millis() < 25000_i128 {
+                if age.as_millis() < 30000_i128 {
                     weighted_sum += price.price * weight;
                     total_weight += weight;
                 } else {
+                    stale_keys.push(PriceKey {
+                        exchange: exchange.clone(),
+                        symbol: symbol.clone(),
+                    });
                     log::warn!(
                         "Price for {} from {} is too old: {}ms",
                         symbol,
@@ -126,6 +131,10 @@ impl InnerWeightedAverageProcessor {
                     );
                 }
             }
+        }
+
+        for key in stale_keys {
+            self.latest_prices.remove(&key);
         }
 
         // If the total weight is less than 50, don't return a weighted average
