@@ -19,7 +19,7 @@ The indexer supports the following smoothing algorithms:
 
 ## Worker Architecture
 
-![Worker Architecture](./docs/worker-architecture.png)
+![Worker Architecture](./docs/arc.png)
 
 
 ## How to run the indexer ?
